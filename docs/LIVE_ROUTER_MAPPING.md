@@ -186,3 +186,22 @@ Result:
 So merely opening the stock Parent Control page is not enough to expose the rule list on this firmware/account. Either cmd 391 is being refused/ignored, or the firmware only materializes Parent Control state after at least one device rule has been created.
 
 Do not infer successful enablement from the frontend code alone. The next useful test should be performed through the stock UI on a non-critical test device, then followed by read-only discovery to see whether cmd 385 begins returning the rule array.
+
+
+## Seventh authenticated discovery
+
+After creating one Kids Manage rule through the stock MTN Parent Control UI, cmd 385 became readable.
+
+The read-only probe returned exactly one rule with:
+
+- enableRule=true
+- the managed device LAN IP
+- startTime=22:00
+- endTime=23:00
+- scheduleDays=3 (Wednesday)
+
+This confirms that Parent Control state is materialized only after at least one device rule is created on this firmware/account. The rule list is IP-based, not MAC-based.
+
+The cmd 385 response also included write/session metadata. Discovery reports must redact session IDs and write tokens; the sanitizer has been updated accordingly.
+
+Do not enable app-side writes yet. First verify the enforcement meaning of the schedule window on the test device (whether the listed period is blocked or allowed), then test a harmless edit/remove through the stock UI and confirm cmd 385 readback. Once semantics are verified, the app can preserve and edit the full datas array safely.
