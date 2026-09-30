@@ -57,6 +57,10 @@ PATTERNS = [
     r"ippro",
     r"downlinkSpeedLimit",
     r"uplinkSpeedLimit",
+    r"parentControl",
+    r"kidDevices",
+    r"kidManage",
+    r"schedule",
 ]
 
 ATTR_RE = re.compile(
@@ -96,6 +100,7 @@ TARGET_ROUTE_WORDS = (
     "client",
     "device",
     "firewall",
+    "parent",
 )
 
 ENTRY_PATHS = (
