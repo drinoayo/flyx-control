@@ -205,3 +205,14 @@ This confirms that Parent Control state is materialized only after at least one 
 The cmd 385 response also included write/session metadata. Discovery reports must redact session IDs and write tokens; the sanitizer has been updated accordingly.
 
 Do not enable app-side writes yet. First verify the enforcement meaning of the schedule window on the test device (whether the listed period is blocked or allowed), then test a harmless edit/remove through the stock UI and confirm cmd 385 readback. Once semantics are verified, the app can preserve and edit the full datas array safely.
+
+
+## Parent Control enforcement semantics
+
+A controlled stock-UI test was performed with one Pixel device scheduled for Wednesday 22:00-23:00.
+
+Observed behavior at 22:00: the router disconnected the managed phone from the router/Wi-Fi rather than merely leaving it associated with no internet access.
+
+This establishes that, on the tested MTN X17U firmware, an enabled Kids Manage schedule represents a forbidden/block period and enforcement can remove the client association during that window.
+
+Still verify recovery behavior at the end of the window: whether the client reconnects automatically at 23:00 or requires a manual reconnect. FlyX Control should not describe the feature as a simple bandwidth pause until that recovery behavior is confirmed.
