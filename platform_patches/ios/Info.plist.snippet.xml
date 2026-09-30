@@ -1,0 +1,8 @@
+<!-- Merge inside the root <dict> in ios/Runner/Info.plist -->
+<key>NSLocalNetworkUsageDescription</key>
+<string>FlyX Control connects directly to your MTN FlyX router on your local Wi-Fi network.</string>
+<key>NSAppTransportSecurity</key>
+<dict>
+    <key>NSAllowsLocalNetworking</key>
+    <true/>
+</dict>
