@@ -38,11 +38,20 @@ def request_json(host: str, payload: dict[str, Any], timeout: float = 6.0) -> di
     return parsed
 
 
-def read_command(host: str, cmd: int, session_id: str = "") -> dict[str, Any]:
-    result = request_json(
-        host,
-        {"cmd": cmd, "method": "GET", "sessionId": session_id},
-    )
+def read_command(
+    host: str,
+    cmd: int,
+    session_id: str = "",
+    fields: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "cmd": cmd,
+        "method": "GET",
+        "sessionId": session_id,
+    }
+    if fields:
+        payload.update(fields)
+    result = request_json(host, payload)
     if result.get("success") is False:
         raise RuntimeError(f"cmd {cmd} refused: {result.get('message', 'unknown')}")
     return result
@@ -169,15 +178,41 @@ def main() -> int:
     # 401      dashboard/WAN data on related firmware
     # 207      CPU/RAM/temperature on related firmware
     # 25       possible per-client speed-policy structure on related firmware
-    # 23/28/30 filter-related reads
-    commands = (223, 224, 225, 402, 18, 337, 401, 207, 25, 23, 28, 30)
+    # 23       MAC filter rules. The stock UI explicitly sends getfun=true.
+    # 28/30    filter-mode related reads
+    # 278      wireless filter endpoint used by the stock UI
+    # 350      USSD state/read endpoint
+    # 355      alternate traffic-flow endpoint
+    probes: tuple[tuple[int, dict[str, Any]], ...] = (
+        (223, {}),
+        (224, {}),
+        (225, {}),
+        (402, {}),
+        (18, {}),
+        (337, {}),
+        (401, {}),
+        (207, {}),
+        (25, {}),
+        (23, {"getfun": True}),
+        (28, {}),
+        (30, {}),
+        (278, {}),
+        (350, {}),
+        (355, {}),
+    )
+    commands = tuple(cmd for cmd, _ in probes)
 
     responses: dict[str, Any] = {}
     errors: dict[str, str] = {}
 
-    for cmd in commands:
+    for cmd, fields in probes:
         try:
-            responses[str(cmd)] = read_command(host, cmd, session_id)
+            responses[str(cmd)] = read_command(
+                host,
+                cmd,
+                session_id,
+                fields=fields,
+            )
         except Exception as exc:
             errors[str(cmd)] = str(exc)
 
@@ -188,6 +223,9 @@ def main() -> int:
     d337 = responses.get("337", {})
     d25 = responses.get("25", {})
     d23 = responses.get("23", {})
+    d278 = responses.get("278", {})
+    d350 = responses.get("350", {})
+    d355 = responses.get("355", {})
 
     device_rows = d223.get("dhcp_list_info")
     if not isinstance(device_rows, list):
@@ -220,6 +258,18 @@ def main() -> int:
             "filter_mode_detail": (
                 isinstance(responses.get("28", {}).get("datas"), list)
                 or isinstance(responses.get("30", {}).get("datas"), list)
+            ),
+            "wireless_filter_fields": sorted(
+                key for key in d278.keys()
+                if key not in {"success", "cmd", "message"}
+            ),
+            "ussd_fields": sorted(
+                key for key in d350.keys()
+                if key not in {"success", "cmd", "message"}
+            ),
+            "alternate_flow_fields": sorted(
+                key for key in d355.keys()
+                if key not in {"success", "cmd", "message"}
             ),
         },
         "responses": sanitize(responses),
