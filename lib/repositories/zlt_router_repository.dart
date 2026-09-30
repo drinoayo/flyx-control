@@ -382,7 +382,11 @@ class ZltRouterRepository implements RouterRepository {
   }
 
   Future<List<Map<String, dynamic>>> _filterRules() async {
-    final payload = await client.command(23, authenticated: true);
+    final payload = await client.command(
+      23,
+      authenticated: true,
+      fields: const {'getfun': true},
+    );
     final rows = payload['datas'];
     if (rows is! List) return const [];
     return rows
