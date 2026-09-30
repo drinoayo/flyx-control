@@ -31,6 +31,9 @@ class ZltRouterRepository implements RouterRepository {
   double _rxRate = 0;
   double _txRate = 0;
 
+  final Map<String, DateTime> _continuousOnlineSince = {};
+  Set<String> _onlineLastPoll = <String>{};
+
   Set<String> _blockedMacs = <String>{};
   Map<String, String> _blockedLabels = <String, String>{};
   int _devicePoll = 0;
@@ -69,12 +72,12 @@ class ZltRouterRepository implements RouterRepository {
 
     final uptime = _number(wan['uptime']);
     _updateRates(
-      rx: _number(wan['wan_rx_bytes']),
-      tx: _number(wan['wan_tx_bytes']),
+      rx: _nullableNumber(wan['wan_rx_bytes']),
+      tx: _nullableNumber(wan['wan_tx_bytes']),
       uptime: uptime,
     );
 
-    final monthMib = _number(_rfCache['mon_total_flow']) ?? 0;
+    final monthMib = _number(_rfCache['mon_total_flow']);
     final rsrp5g = _int(wan['RSRP_5G'], 0);
     final rsrp4g = _int(wan['RSRP'], -120);
     final rsrq5g = _int(wan['RSRQ_5G'], 0);
@@ -131,8 +134,7 @@ class ZltRouterRepository implements RouterRepository {
         _lastTx != null &&
         _lastUptime != null &&
         previousAt != null) {
-      final seconds =
-          now.difference(previousAt).inMilliseconds / 1000.0;
+      final seconds = now.difference(previousAt).inMilliseconds / 1000.0;
       final uptimeRewound = uptime < _lastUptime!;
       final rxRewound = rx < _lastRx!;
       final txRewound = tx < _lastTx!;
@@ -155,14 +157,47 @@ class ZltRouterRepository implements RouterRepository {
   @override
   Future<List<FlyxDevice>> fetchDevices() async {
     await _ensureLogin();
-    final result = await client.command(223, authenticated: true);
-    final rows = result['dhcp_list_info'];
+
+    final result223 = await client.command(223, authenticated: true);
+    dynamic rows = result223['dhcp_list_info'];
+    if (rows is! List) {
+      try {
+        final result402 = await client.command(402, authenticated: true);
+        rows = result402['dhcp_list_info'];
+      } catch (_) {
+        // cmd 223 is already confirmed on the MTN X17U.
+      }
+    }
+
+    final wifiResults = await Future.wait<Map<String, dynamic>>([
+      _safeCommand(224),
+      _safeCommand(225),
+    ]);
+    final wifiByMac = <String, Map<String, dynamic>>{};
+    final wifiByIp = <String, Map<String, dynamic>>{};
+
+    void indexWifi(dynamic list, String band) {
+      if (list is! List) return;
+      for (final item in list) {
+        if (item is! Map) continue;
+        final map = item.map((key, value) => MapEntry('$key', value));
+        map['__band'] = band;
+        final mac = _normaliseMac(_text(map['mac']));
+        final ip = _text(map['ip']);
+        if (mac.isNotEmpty) wifiByMac[mac] = map;
+        if (ip.isNotEmpty) wifiByIp[ip] = map;
+      }
+    }
+
+    indexWifi(wifiResults[0]['wlan24g_wifi_info'], '2.4 GHz');
+    indexWifi(wifiResults[1]['wlan5g_wifi_info'], '5 GHz');
 
     _devicePoll++;
     if (_devicePoll == 1 || _devicePoll % 3 == 1) {
       await _refreshBlocked();
     }
 
+    final now = DateTime.now();
     final devices = <FlyxDevice>[];
     final onlineMacs = <String>{};
 
@@ -170,16 +205,27 @@ class ZltRouterRepository implements RouterRepository {
       for (final entry in rows) {
         if (entry is! Map) continue;
         final map = entry.map((key, value) => MapEntry('$key', value));
-        final mac = _normaliseMac('${map['mac'] ?? ''}');
+        final mac = _normaliseMac(_text(map['mac']));
         if (mac.isEmpty) continue;
         onlineMacs.add(mac);
 
+        if (!_onlineLastPoll.contains(mac)) {
+          _continuousOnlineSince[mac] = now;
+        }
+        final since = _continuousOnlineSince[mac] ?? now;
+
         final hostname = _text(map['hostname']);
-        final name = hostname.isEmpty ? 'Unknown device' : hostname;
-        final connectSeconds = _int(
-          map['connect_time'] ?? map['online_time'] ?? map['uptime'],
-          0,
-        );
+        final name = hostname.isEmpty || hostname == '*'
+            ? 'Unknown device'
+            : hostname;
+        final ip = _text(map['ip']);
+        final wifi = wifiByMac[mac] ?? wifiByIp[ip] ?? const <String, dynamic>{};
+
+        final rssi = _nullableInt(wifi['rssi']);
+        final signalPercent = rssi == null ? 0 : _wifiSignalPercent(rssi);
+        final txLink = _nullableNumber(wifi['txrate']);
+        final rxLink = _nullableNumber(wifi['rxrate']);
+        final expires = _dateFromEpoch(map['expires']);
 
         devices.add(
           FlyxDevice(
@@ -187,8 +233,8 @@ class ZltRouterRepository implements RouterRepository {
             name: name,
             hostname: name,
             mac: mac,
-            ip: _text(map['ip']).isEmpty ? '—' : _text(map['ip']),
-            kind: DeviceKind.unknown,
+            ip: ip.isEmpty ? '—' : ip,
+            kind: _inferKind(name),
             online: true,
             blocked: _blockedMacs.contains(mac),
             rxBytesPerSecond: 0,
@@ -196,17 +242,29 @@ class ZltRouterRepository implements RouterRepository {
             todayBytes: 0,
             weekBytes: 0,
             monthBytes: 0,
-            currentSession: Duration(seconds: connectSeconds),
-            totalOnlineToday: Duration(seconds: connectSeconds),
-            lastSeen: DateTime.now(),
-            signalPercent: 0,
+            currentSession: now.difference(since),
+            totalOnlineToday: Duration.zero,
+            lastSeen: now,
+            signalPercent: signalPercent,
+            wifiBand: _text(wifi['__band']),
+            wifiRssiDbm: rssi,
+            wifiTxLinkMbps: txLink,
+            wifiRxLinkMbps: rxLink,
+            dhcpLeaseExpires: expires,
           ),
         );
       }
     }
 
-    // A blocked client normally disappears from DHCP/association lists. Keep it
-    // visible in FlyX Control so the Blocked tab remains useful.
+    // Devices that vanished since the previous poll start a new continuous
+    // session when they appear again.
+    for (final previous in _onlineLastPoll.difference(onlineMacs)) {
+      _continuousOnlineSince.remove(previous);
+    }
+    _onlineLastPoll = onlineMacs;
+
+    // A blocked client normally disappears from active association lists. If
+    // future firmware mapping exposes readable filter rules, keep it visible.
     for (final mac in _blockedMacs) {
       if (onlineMacs.contains(mac)) continue;
       final label = _blockedLabels[mac] ?? '';
@@ -228,13 +286,21 @@ class ZltRouterRepository implements RouterRepository {
           monthBytes: 0,
           currentSession: Duration.zero,
           totalOnlineToday: Duration.zero,
-          lastSeen: DateTime.now(),
+          lastSeen: now,
           signalPercent: 0,
         ),
       );
     }
 
     return devices;
+  }
+
+  Future<Map<String, dynamic>> _safeCommand(int cmd) async {
+    try {
+      return await client.command(cmd, authenticated: true);
+    } catch (_) {
+      return const {};
+    }
   }
 
   Future<void> _refreshBlocked() async {
@@ -245,7 +311,7 @@ class ZltRouterRepository implements RouterRepository {
 
       for (final rule in rules) {
         if (rule['enableRule'] != true) continue;
-        final mac = _normaliseMac('${rule['mac'] ?? ''}');
+        final mac = _normaliseMac(_text(rule['mac']));
         if (mac.isEmpty) continue;
         blocked.add(mac);
         final label = _text(rule['remark']);
@@ -255,7 +321,7 @@ class ZltRouterRepository implements RouterRepository {
       _blockedMacs = blocked;
       _blockedLabels = labels;
     } catch (_) {
-      // Device listing can still work even if this firmware hides filters.
+      // The user's current MTN firmware returns no readable rules for cmd 23.
     }
   }
 
@@ -265,11 +331,7 @@ class ZltRouterRepository implements RouterRepository {
     if (rows is! List) return const [];
     return rows
         .whereType<Map>()
-        .map(
-          (row) => row.map(
-            (key, value) => MapEntry('$key', value),
-          ),
-        )
+        .map((row) => row.map((key, value) => MapEntry('$key', value)))
         .toList(growable: false);
   }
 
@@ -298,7 +360,7 @@ class ZltRouterRepository implements RouterRepository {
     final report = await _ensureDiscovery();
     if (!report.canBlock) {
       throw RouterFeatureUnavailable(
-        'This X17U did not expose the filter controls needed for safe blocking.',
+        'Blocking is not enabled yet because this MTN firmware accepts the filter commands but does not expose readable filter state. FlyX Control will not risk locking you out.',
       );
     }
 
@@ -308,14 +370,12 @@ class ZltRouterRepository implements RouterRepository {
     }
 
     final rules = (await _filterRules())
-        .where(
-          (rule) => _normaliseMac('${rule['mac'] ?? ''}') != mac,
-        )
+        .where((rule) => _normaliseMac(_text(rule['mac'])) != mac)
         .toList();
 
     if (blocked) {
       final existingAddresses = rules
-          .map((rule) => _normaliseMac('${rule['mac'] ?? ''}'))
+          .map((rule) => _normaliseMac(_text(rule['mac'])))
           .where((value) => value.isNotEmpty)
           .toSet();
       if (existingAddresses.length >= 32) {
@@ -335,7 +395,6 @@ class ZltRouterRepository implements RouterRepository {
         ],
       };
 
-      // Explicitly select blacklist semantics before adding a deny rule.
       await client.write(28, mode);
       await client.write(30, mode);
 
@@ -358,14 +417,14 @@ class ZltRouterRepository implements RouterRepository {
   @override
   Future<void> setDeviceName(String deviceId, String name) async {
     throw RouterFeatureUnavailable(
-      'Friendly names are stored locally for now. The X17U rename command has not been verified yet.',
+      'Friendly-name persistence will be stored locally in FlyX Control in the next data-layer pass.',
     );
   }
 
   @override
   Future<void> setDevicePolicy(String deviceId, DevicePolicy policy) async {
     throw RouterFeatureUnavailable(
-      'Quota storage is ready, but automatic enforcement will be enabled only after per-device counters are verified on this firmware.',
+      'Quota storage is ready, but automatic enforcement needs verified per-device accounting and a safe block path.',
     );
   }
 
@@ -375,8 +434,42 @@ class ZltRouterRepository implements RouterRepository {
   @override
   Future<void> reboot() async {
     throw RouterFeatureUnavailable(
-      'Reboot is intentionally disabled until its X17U command is verified.',
+      'Reboot is intentionally disabled until its X17U write command is verified on this firmware.',
     );
+  }
+
+  DeviceKind _inferKind(String hostname) {
+    final value = hostname.toLowerCase();
+    if (RegExp(r'pixel|iphone|galaxy|android|redmi|xiaomi|oppo|vivo|realme|oneplus|tecno|infinix').hasMatch(value)) {
+      return DeviceKind.phone;
+    }
+    if (RegExp(r'ipad|tablet|tab').hasMatch(value)) return DeviceKind.tablet;
+    if (RegExp(r'macbook|laptop|thinkpad|desktop|surface|lenovo|dell|acer|asus|hp-').hasMatch(value)) {
+      return DeviceKind.laptop;
+    }
+    if (RegExp(r'tv|bravia|webos|tizen|chromecast|firetv|roku').hasMatch(value)) {
+      return DeviceKind.tv;
+    }
+    if (RegExp(r'playstation|ps5|ps4|xbox|nintendo|switch').hasMatch(value)) {
+      return DeviceKind.console;
+    }
+    return DeviceKind.unknown;
+  }
+
+  int _wifiSignalPercent(int rssi) {
+    if (rssi >= -50) return 100;
+    if (rssi <= -100) return 0;
+    return ((rssi + 100) * 2).clamp(0, 100);
+  }
+
+  DateTime? _dateFromEpoch(dynamic value) {
+    final seconds = int.tryParse(_text(value));
+    if (seconds == null || seconds <= 0) return null;
+    try {
+      return DateTime.fromMillisecondsSinceEpoch(seconds * 1000);
+    } catch (_) {
+      return null;
+    }
   }
 
   double _number(dynamic value, [double fallback = 0]) {
@@ -384,15 +477,25 @@ class ZltRouterRepository implements RouterRepository {
     return double.tryParse(cleaned) ?? fallback;
   }
 
+  double? _nullableNumber(dynamic value) {
+    final cleaned = '$value'.replaceAll(RegExp(r'[^0-9.\-]'), '');
+    if (cleaned.isEmpty) return null;
+    return double.tryParse(cleaned);
+  }
+
   int _int(dynamic value, [int fallback = 0]) {
-    final number = _number(value, fallback.toDouble());
-    return number.round();
+    return _number(value, fallback.toDouble()).round();
+  }
+
+  int? _nullableInt(dynamic value) {
+    final number = _nullableNumber(value);
+    return number?.round();
   }
 
   int _firstInt(dynamic value, [int fallback = 0]) {
-    final text = '${value ?? ''}'.trim();
+    final text = _text(value);
     if (text.isEmpty) return fallback;
-    final first = RegExp(r'-?\\d+').firstMatch(text)?.group(0);
+    final first = RegExp(r'-?\d+').firstMatch(text)?.group(0);
     return int.tryParse(first ?? '') ?? fallback;
   }
 
