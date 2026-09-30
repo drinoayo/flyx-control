@@ -1,196 +1,213 @@
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 
-/// Minimal, safety-first client for the ZLT/ZTE reqproc API family.
+/// Local client for the Tozed/ZLT X17U JSON API.
 ///
-/// Reads are safe. Writes are only exposed through [post] and should only be
-/// called when the action was observed in the router's own JavaScript.
+/// The MTN X17U web UI talks to a single endpoint:
+/// POST /cgi-bin/http.cgi
+///
+/// Reads use {"cmd": N, "method": "GET", "sessionId": "..."}.
+/// Writes use the same endpoint with method POST and a fresh CSRF token.
 class ZltClient {
   ZltClient({required String host})
-      : host = host.replaceAll(RegExp(r'^https?://'), '').replaceAll(RegExp(r'/$'), ''),
+      : host = host
+            .replaceAll(RegExp(r'^https?://'), '')
+            .split('#')
+            .first
+            .replaceAll(RegExp(r'/$'), ''),
         _dio = Dio(
           BaseOptions(
             connectTimeout: const Duration(seconds: 4),
             receiveTimeout: const Duration(seconds: 5),
             sendTimeout: const Duration(seconds: 5),
             responseType: ResponseType.json,
-            validateStatus: (status) => status != null && status >= 200 && status < 500,
+            validateStatus: (status) =>
+                status != null && status >= 200 && status < 500,
           ),
         );
 
   final String host;
   final Dio _dio;
-  String? _randomCookie;
+  String? _sessionId;
 
   String get baseUrl => 'http://$host';
+  String get endpoint => '$baseUrl/cgi-bin/http.cgi';
+  bool get isAuthenticated => _sessionId != null && _sessionId!.isNotEmpty;
 
-  Map<String, dynamic> _headers({bool form = false}) => {
-        'Referer': '$baseUrl/index.html',
-        'X-Requested-With': 'XMLHttpRequest',
-        if (form) 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-        if (_randomCookie != null) 'Cookie': 'random=$_randomCookie',
+  Map<String, dynamic> get _headers => {
+        'Content-Type': 'application/json;charset=UTF-8',
+        'Accept': 'application/json, text/plain, */*',
+        'Referer': '$baseUrl/',
       };
 
-  Future<Map<String, dynamic>> read(List<String> commands) async {
-    if (commands.isEmpty) return const {};
-    final response = await _dio.get<dynamic>(
-      '$baseUrl/reqproc/proc_get',
-      queryParameters: {
-        'isTest': 'false',
-        if (commands.length > 1) 'multi_data': '1',
-        'cmd': commands.join(','),
-      },
-      options: Options(headers: _headers()),
-    );
-    return _asMap(response.data);
+  Future<Map<String, dynamic>> command(
+    int cmd, {
+    bool authenticated = false,
+  }) async {
+    if (authenticated && !isAuthenticated) {
+      throw ZltLoginException('Command $cmd requires a router login.');
+    }
+
+    final body = await _request({
+      'cmd': cmd,
+      'method': 'GET',
+      'sessionId': authenticated ? _sessionId! : '',
+    });
+
+    _throwIfRefused(body, cmd);
+    return body;
   }
 
-  Future<void> login({required String username, required String password}) async {
-    final safety = await read(['psw_fail_num_str', 'login_lock_time']);
-    final attempts = int.tryParse('${safety['psw_fail_num_str'] ?? ''}');
-    final lockTime = int.tryParse('${safety['login_lock_time'] ?? ''}');
-    if ((lockTime ?? -1) > 0 || (attempts != null && attempts < 2)) {
+  Future<void> login({
+    required String username,
+    required String password,
+  }) async {
+    if (password.isEmpty) {
+      throw ZltLoginException('Enter the FlyX admin password.');
+    }
+
+    final challenge = await command(232);
+    final token = '${challenge['token'] ?? ''}';
+    if (token.isEmpty) {
       throw ZltLoginException(
-        'Router login is close to or currently in lockout. Open the router web UI and verify the password before trying again.',
+        'The router did not return its login challenge token.',
       );
     }
 
-    final nonceMap = await read(['get_random_login']);
-    final nonce = '${nonceMap['random_login'] ?? nonceMap['get_random_login'] ?? ''}';
-    if (nonce.isEmpty) {
-      throw ZltLoginException('The router did not return a login nonce. This firmware may use a different authentication flow.');
+    final requestedSession = _randomHex(32);
+    final digest = sha256.convert(utf8.encode('$token$password')).toString();
+
+    final answer = await _request({
+      'cmd': 100,
+      'method': 'POST',
+      'username': username,
+      'passwd': digest,
+      'sessionId': requestedSession,
+      'isAutoUpgrade': '1',
+      'isCheckPasswd': '1',
+    });
+
+    if (answer['success'] != true) {
+      throw ZltLoginException(
+        'The router rejected the login. ${answer['message'] ?? ''}'.trim(),
+      );
     }
 
-    final token = await _token();
-    final digestHex = sha256.convert(utf8.encode('$nonce$password')).toString();
-    final encodedUsername = base64Encode(utf8.encode(username));
-    final encodedPassword = base64Encode(utf8.encode(digestHex));
-
-    final response = await _dio.post<dynamic>(
-      '$baseUrl/reqproc/proc_post',
-      data: {
-        'isTest': 'false',
-        'goformId': 'LOGIN',
-        'username': encodedUsername,
-        'password': encodedPassword,
-        'CSRFToken': token,
-      },
-      options: Options(
-        headers: _headers(form: true),
-        contentType: Headers.formUrlEncodedContentType,
-      ),
-    );
-
-    _captureSessionCookie(response.headers);
-    final body = _asMap(response.data);
-    final result = '${body['result'] ?? ''}';
-    if (result != '0' && result != '4' && result.toLowerCase() != 'success') {
-      throw ZltLoginException('The router rejected the login. Result: ${result.isEmpty ? 'unknown' : result}');
-    }
+    final returned = '${answer['sessionId'] ?? ''}';
+    _sessionId = returned.isEmpty ? requestedSession : returned;
   }
 
-  Future<Map<String, dynamic>> post(
-    String goformId,
+  Future<Map<String, dynamic>> write(
+    int cmd,
     Map<String, dynamic> fields,
   ) async {
-    final token = await _token();
-    final response = await _dio.post<dynamic>(
-      '$baseUrl/reqproc/proc_post',
-      data: {
-        'isTest': 'false',
-        'goformId': goformId,
-        ...fields,
-        'CSRFToken': token,
-      },
-      options: Options(
-        headers: _headers(form: true),
-        contentType: Headers.formUrlEncodedContentType,
-      ),
+    if (!isAuthenticated) {
+      throw ZltLoginException('This action requires a router login.');
+    }
+
+    final tokenReply = await command(233, authenticated: true);
+    final token = '${tokenReply['token'] ?? ''}';
+
+    final answer = await _request({
+      ...fields,
+      'cmd': cmd,
+      'method': 'POST',
+      'success': true,
+      'sessionId': _sessionId!,
+      'token': token,
+    });
+
+    final message = '${answer['message'] ?? ''}'.trim();
+    if (message.isNotEmpty) {
+      throw ZltApiException('Command $cmd was refused: $message');
+    }
+    return answer;
+  }
+
+  /// Safe discovery. The three unauthenticated reads are always attempted.
+  ///
+  /// If the caller already logged in, additional GET-style reads are used to
+  /// confirm the connected-device list and filter controls. No settings change.
+  Future<ZltDiscoveryReport> discover() async {
+    final responses = <int, Map<String, dynamic>>{};
+    final errors = <int, String>{};
+
+    Future<void> probe(int cmd, {bool authenticated = false}) async {
+      try {
+        responses[cmd] = await command(cmd, authenticated: authenticated);
+      } catch (e) {
+        errors[cmd] = '$e';
+      }
+    }
+
+    await probe(113);
+    await probe(133);
+    await probe(205);
+
+    if (isAuthenticated) {
+      await probe(223, authenticated: true);
+      await probe(23, authenticated: true);
+      await probe(28, authenticated: true);
+      await probe(30, authenticated: true);
+    }
+
+    final stationRows = responses[223]?['dhcp_list_info'];
+    final ruleRows = responses[23]?['datas'];
+
+    return ZltDiscoveryReport(
+      responses: responses,
+      errors: errors,
+      verifiedCommands: responses.keys.toList()..sort(),
+      hasStationList: stationRows is List,
+      hasFilterRules: ruleRows is List,
+      hasFilterModes: responses.containsKey(28) && responses.containsKey(30),
     );
-    _captureSessionCookie(response.headers);
+  }
+
+  Future<Map<String, dynamic>> _request(Map<String, dynamic> payload) async {
+    final response = await _dio.post<dynamic>(
+      endpoint,
+      data: jsonEncode(payload),
+      options: Options(headers: _headers),
+    );
+
+    if (response.statusCode == 404) {
+      throw ZltApiException(
+        'The router does not expose the expected X17U API at /cgi-bin/http.cgi.',
+      );
+    }
     return _asMap(response.data);
   }
 
-  /// Reads only the router's own JavaScript to discover feature names.
-  Future<ZltDiscoveryReport> discover() async {
-    final status = await read([
-      'network_type',
-      'rssi',
-      'signalbar',
-      'lte_rsrq',
-      'lte_pci',
-      'ppp_status',
-      'station_list',
-      'cr_version',
-      'tz_customer_code',
-    ]);
-
-    final scripts = <String>[];
-    for (final path in ['/js/service.js', '/js/config/ufi/config.js', '/js/util.js']) {
-      try {
-        final response = await _dio.get<String>(
-          '$baseUrl$path',
-          options: Options(
-            headers: _headers(),
-            responseType: ResponseType.plain,
-            validateStatus: (status) => status != null && status >= 200 && status < 400,
-          ),
-        );
-        if (response.data case final String text when text.isNotEmpty) scripts.add(text);
-      } catch (_) {
-        // A missing script is not a discovery failure.
-      }
+  void _throwIfRefused(Map<String, dynamic> body, int cmd) {
+    if (body['success'] == false) {
+      final message = '${body['message'] ?? 'unknown error'}';
+      throw ZltApiException('Command $cmd was refused: $message');
     }
-
-    final source = scripts.join('\n');
-    final actions = <String>{};
-    for (final match in RegExp(r'''goformId\s*[:=]\s*["']([A-Z0-9_]+)["']''').allMatches(source)) {
-      actions.add(match.group(1)!);
-    }
-    // Minified firmware sometimes stores goformIds as plain string literals.
-    for (final match in RegExp(r'''["']([A-Z][A-Z0-9_]{4,})["']''').allMatches(source)) {
-      final value = match.group(1)!;
-      if (value.contains('SMS') ||
-          value.contains('USSD') ||
-          value.contains('WIFI') ||
-          value.contains('REBOOT') ||
-          value.contains('TRAFFIC_BLOCK') ||
-          value.contains('BEARER')) {
-        actions.add(value);
-      }
-    }
-
-    return ZltDiscoveryReport(
-      status: status,
-      actions: actions.toList()..sort(),
-      hasStationList: status['station_list'] is List || '${status['station_list'] ?? ''}'.isNotEmpty,
-    );
   }
 
-  Future<String> _token() async {
-    final response = await read(['get_token']);
-    return '${response['token'] ?? response['get_token'] ?? ''}';
-  }
-
-  void _captureSessionCookie(Headers headers) {
-    final values = headers.map['set-cookie'] ?? const <String>[];
-    for (final value in values) {
-      final match = RegExp(r'(?:^|;\s*)random=([^;]+)').firstMatch(value);
-      if (match != null) {
-        _randomCookie = match.group(1);
-        return;
-      }
+  String _randomHex(int byteCount) {
+    final random = Random.secure();
+    final buffer = StringBuffer();
+    for (var i = 0; i < byteCount; i++) {
+      buffer.write(random.nextInt(256).toRadixString(16).padLeft(2, '0'));
     }
+    return buffer.toString();
   }
 
   Map<String, dynamic> _asMap(dynamic value) {
     if (value is Map<String, dynamic>) return value;
-    if (value is Map) return value.map((key, val) => MapEntry('$key', val));
+    if (value is Map) {
+      return value.map((key, val) => MapEntry('$key', val));
+    }
     if (value is String && value.trim().isNotEmpty) {
       final decoded = jsonDecode(value);
-      if (decoded is Map) return decoded.map((key, val) => MapEntry('$key', val));
+      if (decoded is Map) {
+        return decoded.map((key, val) => MapEntry('$key', val));
+      }
     }
     return const {};
   }
@@ -198,20 +215,35 @@ class ZltClient {
 
 class ZltDiscoveryReport {
   const ZltDiscoveryReport({
-    required this.status,
-    required this.actions,
+    required this.responses,
+    required this.errors,
+    required this.verifiedCommands,
     required this.hasStationList,
+    required this.hasFilterRules,
+    required this.hasFilterModes,
   });
 
-  final Map<String, dynamic> status;
-  final List<String> actions;
+  final Map<int, Map<String, dynamic>> responses;
+  final Map<int, String> errors;
+  final List<int> verifiedCommands;
   final bool hasStationList;
+  final bool hasFilterRules;
+  final bool hasFilterModes;
 
-  bool hasAction(String action) => actions.contains(action);
+  bool get canBlock => hasFilterRules && hasFilterModes;
+  bool supportsCommand(int cmd) => verifiedCommands.contains(cmd);
 }
 
 class ZltLoginException implements Exception {
   ZltLoginException(this.message);
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
+class ZltApiException implements Exception {
+  ZltApiException(this.message);
   final String message;
 
   @override
