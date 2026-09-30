@@ -69,7 +69,14 @@ class MoreScreen extends StatelessWidget {
               children: [
                 _FeatureRow(icon: Icons.radar_rounded, title: 'Capability scan', subtitle: '${c.discoveredActions.length} actions discovered', enabled: true),
                 const Divider(height: 24, indent: 46),
-                _FeatureRow(icon: Icons.data_usage_rounded, title: 'Usage history', subtitle: c.perDeviceTraffic ? 'Per-device counters available' : 'Local history engine ready', enabled: true),
+                _FeatureRow(
+                  icon: Icons.data_usage_rounded,
+                  title: 'Usage history',
+                  subtitle: c.perDeviceTraffic
+                      ? 'Per-device counters available'
+                      : 'Whole-router daily and weekly history',
+                  enabled: true,
+                ),
                 const Divider(height: 24, indent: 46),
                 _FeatureRow(icon: Icons.restart_alt_rounded, title: 'Restart FlyX', subtitle: 'Reboot the router safely', enabled: c.reboot, onTap: c.reboot ? () => _reboot(context) : null),
               ],
