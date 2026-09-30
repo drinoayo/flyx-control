@@ -156,3 +156,18 @@ scheduleDays is stored as a comma-separated set of weekday numbers (Monday=1 thr
 The UI saves the entire rule array through cmd 385, then applies the filter. Because cmd 391 is a write that enables the feature, discovery must not call it automatically.
 
 The authenticated read-only discovery utility now probes only cmd 397 GET and cmd 385 GET/getfun=true. If cmd 385 returns datas on the tested MTN firmware, FlyX Control can consider scheduling/pause controls after preserving existing rules and verifying exact enforcement semantics.
+
+
+## Fifth authenticated discovery
+
+The exact read-only Parent Control probes were tested on the MTN firmware:
+
+- cmd 397 GET authenticated successfully but returned only success/cmd/message;
+- cmd 385 GET with getfun=true authenticated successfully but returned only success/cmd/message;
+- no datas rule array was exposed.
+
+Therefore Parent Control scheduling is not readable while the feature is in its current state, and FlyX Control must not write or replace any rule list yet.
+
+The stock Parent Control manager itself calls cmd 391 POST with enable="1" when that manager mounts, before it starts reading devices/rules. This strongly suggests the MTN firmware may only expose cmd 385 rule data after Parent Control has first been enabled. That is now the boundary between read-only discovery and a configuration-changing test.
+
+No automatic discovery script should cross that boundary. A future test of cmd 391 must require explicit user consent, preserve any returned/current rules, and use the stock UI behavior as the reference.
