@@ -31,7 +31,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
             child: AppTopBar(
-              subtitle: 'CONTROL WHO CONNECTS',
+              subtitle: 'SEE WHAT IS CONNECTED',
               title: 'Devices',
               trailing: Container(
                 width: 42,
@@ -53,14 +53,49 @@ class _DevicesScreenState extends State<DevicesScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 18),
             child: Row(
               children: [
-                _FilterChip(label: 'All ${all.length}', selected: filter == 0, onTap: () => setState(() => filter = 0)),
+                _FilterChip(
+                  label: 'All ${all.length}',
+                  selected: filter == 0,
+                  onTap: () => setState(() => filter = 0),
+                ),
                 const SizedBox(width: 8),
-                _FilterChip(label: 'Online ${online.length}', selected: filter == 1, onTap: () => setState(() => filter = 1)),
+                _FilterChip(
+                  label: 'Online ${online.length}',
+                  selected: filter == 1,
+                  onTap: () => setState(() => filter = 1),
+                ),
                 const SizedBox(width: 8),
-                _FilterChip(label: 'Blocked ${blocked.length}', selected: filter == 2, onTap: () => setState(() => filter = 2)),
+                _FilterChip(
+                  label: 'Blocked ${blocked.length}',
+                  selected: filter == 2,
+                  onTap: () => setState(() => filter = 2),
+                ),
               ],
             ),
           ),
+          if (!controller.capabilities.blocking) ...[
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: FlyxColors.yellow.withValues(alpha: .07),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: FlyxColors.yellow.withValues(alpha: .16),
+                  ),
+                ),
+                child: Text(
+                  'Connected devices are live. Router-side blocking stays hidden until the MTN firmware exposes a verifiable deny list.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: FlyxColors.muted,
+                      ),
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 18),
           Expanded(
             child: visible.isEmpty
@@ -69,7 +104,11 @@ class _DevicesScreenState extends State<DevicesScreen> {
                     padding: const EdgeInsets.fromLTRB(18, 0, 18, 28),
                     itemCount: visible.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 10),
-                    itemBuilder: (context, index) => _DeviceCard(device: visible[index]),
+                    itemBuilder: (context, index) => _DeviceCard(
+                      device: visible[index],
+                      perDeviceTraffic:
+                          controller.capabilities.perDeviceTraffic,
+                    ),
                   ),
           ),
         ],
@@ -79,7 +118,12 @@ class _DevicesScreenState extends State<DevicesScreen> {
 }
 
 class _FilterChip extends StatelessWidget {
-  const _FilterChip({required this.label, required this.selected, required this.onTap});
+  const _FilterChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
   final String label;
   final bool selected;
   final VoidCallback onTap;
@@ -95,7 +139,9 @@ class _FilterChip extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected ? FlyxColors.yellow : FlyxColors.surface,
           borderRadius: BorderRadius.circular(99),
-          border: Border.all(color: selected ? FlyxColors.yellow : FlyxColors.line),
+          border: Border.all(
+            color: selected ? FlyxColors.yellow : FlyxColors.line,
+          ),
         ),
         child: Text(
           label,
@@ -109,14 +155,26 @@ class _FilterChip extends StatelessWidget {
 }
 
 class _DeviceCard extends StatelessWidget {
-  const _DeviceCard({required this.device});
+  const _DeviceCard({
+    required this.device,
+    required this.perDeviceTraffic,
+  });
+
   final FlyxDevice device;
+  final bool perDeviceTraffic;
 
   @override
   Widget build(BuildContext context) {
+    final connection = [
+      if (device.wifiBand.isNotEmpty) device.wifiBand,
+      if (device.wifiRssiDbm != null) '${device.wifiRssiDbm} dBm',
+    ].join(' · ');
+
     return SurfaceCard(
       onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => DeviceDetailScreen(deviceId: device.id)),
+        MaterialPageRoute(
+          builder: (_) => DeviceDetailScreen(deviceId: device.id),
+        ),
       ),
       child: Column(
         children: [
@@ -130,10 +188,19 @@ class _DeviceCard extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        Flexible(child: Text(device.name, style: Theme.of(context).textTheme.titleMedium)),
+                        Flexible(
+                          child: Text(
+                            device.name,
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                        ),
                         if (device.blocked) ...[
                           const SizedBox(width: 8),
-                          const Icon(Icons.block_rounded, size: 15, color: FlyxColors.danger),
+                          const Icon(
+                            Icons.block_rounded,
+                            size: 15,
+                            color: FlyxColors.danger,
+                          ),
                         ],
                       ],
                     ),
@@ -142,16 +209,21 @@ class _DeviceCard extends StatelessWidget {
                       device.blocked
                           ? 'Blocked'
                           : device.online
-                              ? '${device.ip} · ${device.signalPercent}% Wi-Fi'
+                              ? '${device.ip}${connection.isEmpty ? '' : ' · $connection'}'
                               : 'Last seen ${_lastSeen(device.lastSeen)}',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: device.blocked ? FlyxColors.danger : FlyxColors.muted,
+                            color: device.blocked
+                                ? FlyxColors.danger
+                                : FlyxColors.muted,
                           ),
                     ),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right_rounded, color: FlyxColors.muted),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: FlyxColors.muted,
+              ),
             ],
           ),
           if (device.online && !device.blocked) ...[
@@ -160,9 +232,38 @@ class _DeviceCard extends StatelessWidget {
             const SizedBox(height: 14),
             Row(
               children: [
-                Expanded(child: MetricLabel(label: 'LIVE', value: '↓ ${formatRate(device.rxBytesPerSecond)}')),
-                Expanded(child: MetricLabel(label: 'TODAY', value: formatBytes(device.todayBytes))),
-                Expanded(child: MetricLabel(label: 'ONLINE', value: formatDuration(device.currentSession))),
+                Expanded(
+                  child: perDeviceTraffic
+                      ? MetricLabel(
+                          label: 'LIVE',
+                          value: '↓ ${formatRate(device.rxBytesPerSecond)}',
+                        )
+                      : MetricLabel(
+                          label: 'WI-FI',
+                          value: device.wifiBand.isEmpty
+                              ? 'Connected'
+                              : device.wifiBand,
+                        ),
+                ),
+                Expanded(
+                  child: perDeviceTraffic
+                      ? MetricLabel(
+                          label: 'TODAY',
+                          value: formatBytes(device.todayBytes),
+                        )
+                      : MetricLabel(
+                          label: 'SIGNAL',
+                          value: device.wifiRssiDbm == null
+                              ? '—'
+                              : '${device.wifiRssiDbm} dBm',
+                        ),
+                ),
+                Expanded(
+                  child: MetricLabel(
+                    label: 'OBSERVED',
+                    value: formatDuration(device.currentSession),
+                  ),
+                ),
               ],
             ),
           ] else if (device.blocked) ...[
@@ -176,7 +277,9 @@ class _DeviceCard extends StatelessWidget {
                     await controller.setBlocked(device.id, false);
                   } catch (e) {
                     if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('$e')),
+                      );
                     }
                   }
                 },
@@ -210,14 +313,25 @@ class _EmptyDevices extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.devices_other_rounded, color: FlyxColors.muted, size: 42),
+            const Icon(
+              Icons.devices_other_rounded,
+              color: FlyxColors.muted,
+              size: 42,
+            ),
             const SizedBox(height: 14),
-            Text(filter == 2 ? 'No blocked devices' : 'No devices found', style: Theme.of(context).textTheme.titleLarge),
+            Text(
+              filter == 2 ? 'No blocked devices' : 'No devices found',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
             const SizedBox(height: 7),
             Text(
-              filter == 2 ? 'Devices you block will stay visible here.' : 'Connect a device to FlyX and it will appear here.',
+              filter == 2
+                  ? 'Blocked devices will stay visible here once router-side blocking is verified.'
+                  : 'Connect a device to FlyX and it will appear here.',
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: FlyxColors.muted),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: FlyxColors.muted,
+                  ),
             ),
           ],
         ),
