@@ -59,19 +59,37 @@ Command 207 exposes CPU usage, device temperature, free memory, firmware version
 
 ## Blocking
 
-Do not enable router-side blocking merely because commands 23/28/30 return success: true. On the tested MTN firmware they do not return the existing filter list or filter-mode structure.
+The stock MTN web UI JavaScript confirms the MAC-filter API family:
 
-Without readable state, a write could overwrite unknown rules or select the wrong allow/deny semantics. Block/Unblock therefore remains capability-gated.
+- getMACData uses command 23 with method GET and **getfun=true**;
+- setMACData uses command 23 with method POST;
+- setIPFilterMode uses command 28 with method POST;
+- setMACMode uses command 30 with method POST;
+- getWirelessFilter / setWirelessFilter use command 278;
+- the UI includes MAC Filter, whitelist/blacklist and Access Control surfaces.
 
-The next safe approach is to inspect the stock router UI JavaScript and, if necessary, capture the stock UI's own request while changing a test device.
+The earlier read-only probe of command 23 omitted getfun=true, which likely explains why that probe returned only an empty message. The discovery utility and Flutter capability scan now match the stock UI read contract.
+
+Block/Unblock still remains capability-gated until a new read-only probe confirms the actual rule-list and mode payload returned by this MTN firmware. A write must preserve the router's existing mode and rules rather than assuming their structure.
 
 ## Per-device limits
 
-Per-device quotas require both trustworthy per-device byte accounting and a verified enforcement mechanism such as a block or QoS rule.
+The stock web UI bundle contains Speed Limit, downlink-speed-limit and uplink-speed-limit interfaces, so the firmware family clearly contains speed-control functionality. That does not yet prove the MTN account exposes the corresponding control payload.
 
-Neither is confirmed on the tested MTN firmware yet. Command 25 is access-restricted and the known client-list flow fields remain zero.
+Per-device quotas still require both trustworthy per-device byte accounting and a verified enforcement mechanism. Command 25 is access-restricted and the known client-list flow fields remain zero.
 
 The app must not substitute Wi-Fi RSSI or association link rate for internet data usage.
+
+## Other stock UI mappings
+
+The web bundle also confirms:
+
+- command 350 is used for USSD GET/POST;
+- command 337 is used for traffic-flow GET/POST;
+- command 355 is an alternate traffic-flow GET/POST endpoint;
+- command 278 is the wireless-filter GET/POST endpoint.
+
+These are now included only as read probes until their exact field semantics are verified.
 
 ## Safety rule
 
