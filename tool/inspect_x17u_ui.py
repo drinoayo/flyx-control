@@ -299,7 +299,7 @@ def main() -> int:
     }
 
     if args.json:
-        print(json.dumps(report, indent=2, ensure_ascii=False))
+        print(json.dumps(report, indent=2, ensure_ascii=True))
     else:
         print("X17U stock UI inspection")
         print("=" * 52)
