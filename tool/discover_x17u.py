@@ -63,9 +63,21 @@ def post_command(host: str, cmd: int, timeout: float = 5.0) -> dict[str, Any]:
 
 def sanitize(value: Any, key: str = "") -> Any:
     normalized = key.lower().replace("-", "").replace("_", "")
-    if normalized in SENSITIVE_KEYS or any(
-        token in normalized
-        for token in ("imei", "imsi", "iccid", "serialnumber", "wifipassword")
+    if (
+        normalized in SENSITIVE_KEYS
+        or normalized.endswith("sn")
+        or any(
+            token in normalized
+            for token in (
+                "imei",
+                "imsi",
+                "iccid",
+                "serial",
+                "wifipassword",
+                "password",
+                "passwd",
+            )
+        )
     ):
         text = str(value)
         if not text:
@@ -73,6 +85,9 @@ def sanitize(value: Any, key: str = "") -> Any:
         if len(text) <= 4:
             return "[redacted]"
         return f"[redacted:{text[-4:]}]"
+
+    if "mac" in normalized and str(value):
+        return "[redacted-mac]"
 
     if isinstance(value, dict):
         return {str(k): sanitize(v, str(k)) for k, v in value.items()}
