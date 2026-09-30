@@ -459,7 +459,7 @@ class ZltRouterRepository implements RouterRepository {
   int _wifiSignalPercent(int rssi) {
     if (rssi >= -50) return 100;
     if (rssi <= -100) return 0;
-    return ((rssi + 100) * 2).clamp(0, 100);
+    return ((rssi + 100) * 2).clamp(0, 100).toInt();
   }
 
   DateTime? _dateFromEpoch(dynamic value) {
