@@ -11,12 +11,14 @@ No login is performed and no router command is sent.
 from __future__ import annotations
 
 import argparse
+import gzip
 import html
 import json
 import re
 import sys
 import urllib.parse
 import urllib.request
+import zlib
 from collections import deque
 from typing import Any
 
@@ -79,18 +81,46 @@ def fetch_text(url: str, timeout: float = 8.0) -> dict[str, Any]:
     req = urllib.request.Request(
         url,
         headers={
-            "User-Agent": "FlyX-Control-UI-Inspector/0.2",
+            "User-Agent": "FlyX-Control-UI-Inspector/0.3",
             "Accept": "text/html,application/javascript,text/javascript,text/css,*/*",
+            "Accept-Encoding": "identity",
         },
     )
     with urllib.request.urlopen(req, timeout=timeout) as response:
         raw = response.read()
+        encoding = (response.headers.get("Content-Encoding") or "").lower()
+
+        # Some X17U firmware serves gzip-compressed HTML without a usable
+        # Content-Encoding header. Detect the payload itself as well.
+        decoded = raw
+        compression = "none"
+        try:
+            if raw.startswith(b"\x1f\x8b"):
+                decoded = gzip.decompress(raw)
+                compression = "gzip-magic"
+            elif encoding == "gzip":
+                decoded = gzip.decompress(raw)
+                compression = "gzip-header"
+            elif encoding == "deflate":
+                try:
+                    decoded = zlib.decompress(raw)
+                except zlib.error:
+                    decoded = zlib.decompress(raw, -zlib.MAX_WBITS)
+                compression = "deflate"
+        except Exception:
+            # Preserve the original bytes for reporting instead of failing the
+            # whole inspection if a router returns malformed compressed data.
+            decoded = raw
+            compression = "decode-failed"
+
         return {
             "url": response.geturl(),
             "content_type": response.headers.get_content_type(),
             "status": getattr(response, "status", 200),
             "raw": raw,
-            "text": raw.decode("utf-8", errors="replace"),
+            "decoded_bytes": len(decoded),
+            "compression": compression,
+            "text": decoded.decode("utf-8", errors="replace"),
         }
 
 
@@ -253,6 +283,8 @@ def main() -> int:
                     "status": result["status"],
                     "content_type": content_type,
                     "bytes": size,
+                    "decoded_bytes": result.get("decoded_bytes", size),
+                    "compression": result.get("compression", "none"),
                     "preview": preview(text),
                 }
             )
@@ -284,7 +316,7 @@ def main() -> int:
         "read_only": True,
         "login_attempted": False,
         "router_commands_sent": False,
-        "version": "0.2",
+        "version": "0.3",
         "urls_fetched": len(seen_urls),
         "script_assets_found": len(script_refs),
         "all_references_found": len(discovered_refs),
