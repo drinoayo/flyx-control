@@ -68,9 +68,11 @@ The stock MTN web UI JavaScript confirms the MAC-filter API family:
 - getWirelessFilter / setWirelessFilter use command 278;
 - the UI includes MAC Filter, whitelist/blacklist and Access Control surfaces.
 
-The earlier read-only probe of command 23 omitted getfun=true, which likely explains why that probe returned only an empty message. The discovery utility and Flutter capability scan now match the stock UI read contract.
+A follow-up authenticated read-only probe used the stock UI's exact getMACData shape, including getfun=true. On this MTN firmware, command 23 still returned only success/cmd/message with no rule list. Commands 28 and 30 behaved the same way. Command 278 (the stock UI's wireless-filter endpoint) also returned only success/cmd/message.
 
-Block/Unblock still remains capability-gated until a new read-only probe confirms the actual rule-list and mode payload returned by this MTN firmware. A write must preserve the router's existing mode and rules rather than assuming their structure.
+This means the missing filter state is not simply caused by the earlier probe shape. Block/Unblock remains capability-gated.
+
+The next safe path is to inspect the lazy-loaded firewall/access-control route chunks from the stock web UI. Those chunks should reveal the actual form payloads, mode fields and any alternate blocking workflow used by this branded firmware.
 
 ## Per-device limits
 
@@ -89,7 +91,7 @@ The web bundle also confirms:
 - command 355 is an alternate traffic-flow GET/POST endpoint;
 - command 278 is the wireless-filter GET/POST endpoint.
 
-These are now included only as read probes until their exact field semantics are verified.
+On the tested MTN firmware, command 350 timed out as a read, command 355 returned an empty object, and command 278 returned no fields beyond success/cmd/message. These are not enabled as app controls yet.
 
 ## Safety rule
 
