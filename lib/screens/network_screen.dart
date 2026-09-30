@@ -13,7 +13,7 @@ class NetworkScreen extends StatefulWidget {
 }
 
 class _NetworkScreenState extends State<NetworkScreen> {
-  final List<double> signalHistory = [-98, -98, -97, -96, -97, -95, -96, -94, -96, -97, -95, -96];
+  final List<double> signalHistory = [];
 
   @override
   Widget build(BuildContext context) {
@@ -92,6 +92,65 @@ class _NetworkScreenState extends State<NetworkScreen> {
                   ),
           ),
           const SizedBox(height: 26),
+          const SectionTitle(title: 'Data usage'),
+          const SizedBox(height: 10),
+          SurfaceCard(
+            child: n == null
+                ? const SizedBox.shrink()
+                : Column(
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: MetricLabel(
+                              label: 'TODAY',
+                              value: formatBytes(n.todayBytes),
+                            ),
+                          ),
+                          Expanded(
+                            child: MetricLabel(
+                              label: 'THIS MONTH',
+                              value: formatBytes(n.monthBytes),
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (n.monthDownloadBytes > 0 ||
+                          n.monthUploadBytes > 0) ...[
+                        const SizedBox(height: 20),
+                        const Divider(height: 1),
+                        const SizedBox(height: 18),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: MetricLabel(
+                                label: 'MONTH DOWNLOAD',
+                                value: formatBytes(n.monthDownloadBytes),
+                              ),
+                            ),
+                            Expanded(
+                              child: MetricLabel(
+                                label: 'MONTH UPLOAD',
+                                value: formatBytes(n.monthUploadBytes),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                      const SizedBox(height: 14),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Monthly totals come from FlyX. Daily history is derived locally from verified WAN counters.',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: FlyxColors.muted,
+                              ),
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+          const SizedBox(height: 26),
           const SectionTitle(title: 'Connection health'),
           const SizedBox(height: 10),
           SurfaceCard(
@@ -127,6 +186,56 @@ class _NetworkScreenState extends State<NetworkScreen> {
                     ],
                   ),
           ),
+          if (n != null &&
+              (n.routerCpuPercent != null ||
+                  n.routerTemperatureC != null ||
+                  n.routerMemoryFreeBytes != null ||
+                  n.firmwareVersion.isNotEmpty)) ...[
+            const SizedBox(height: 26),
+            const SectionTitle(title: 'Router health'),
+            const SizedBox(height: 10),
+            SurfaceCard(
+              child: Column(
+                children: [
+                  if (n.routerCpuPercent != null)
+                    _HealthRow(
+                      icon: Icons.memory_rounded,
+                      title: 'CPU usage',
+                      value: '${n.routerCpuPercent!.toStringAsFixed(1)}%',
+                    ),
+                  if (n.routerCpuPercent != null &&
+                      n.routerTemperatureC != null)
+                    const Divider(height: 24, indent: 46),
+                  if (n.routerTemperatureC != null)
+                    _HealthRow(
+                      icon: Icons.device_thermostat_rounded,
+                      title: 'Temperature',
+                      value: '${n.routerTemperatureC!.toStringAsFixed(0)} °C',
+                      valueColor: n.routerTemperatureC! >= 70
+                          ? FlyxColors.warning
+                          : FlyxColors.success,
+                    ),
+                  if (n.routerTemperatureC != null &&
+                      n.routerMemoryFreeBytes != null)
+                    const Divider(height: 24, indent: 46),
+                  if (n.routerMemoryFreeBytes != null)
+                    _HealthRow(
+                      icon: Icons.storage_rounded,
+                      title: 'Free memory',
+                      value: formatBytes(n.routerMemoryFreeBytes!),
+                    ),
+                  if (n.firmwareVersion.isNotEmpty) ...[
+                    const Divider(height: 24, indent: 46),
+                    _HealthRow(
+                      icon: Icons.system_update_alt_rounded,
+                      title: 'Firmware',
+                      value: n.firmwareVersion,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 26),
           const SectionTitle(title: 'Advanced controls'),
           const SizedBox(height: 10),
