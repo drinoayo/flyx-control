@@ -216,3 +216,19 @@ Observed behavior at 22:00: the router disconnected the managed phone from the r
 This establishes that, on the tested MTN X17U firmware, an enabled Kids Manage schedule represents a forbidden/block period and enforcement can remove the client association during that window.
 
 Still verify recovery behavior at the end of the window: whether the client reconnects automatically at 23:00 or requires a manual reconnect. FlyX Control should not describe the feature as a simple bandwidth pause until that recovery behavior is confirmed.
+
+
+## Eighth authenticated discovery: active scheduled block
+
+A read-only report was captured while the Pixel test rule was actively inside its Wednesday 22:00-23:00 forbidden window.
+
+Findings:
+
+- cmd 385 remained readable and continued to expose the same enabled rule;
+- the router's DHCP/client source (cmd 223) still listed the Pixel;
+- the 5 GHz association source (cmd 225) also still listed the Pixel and reported RSSI;
+- therefore the device-list and Wi-Fi-association APIs can remain populated while Parent Control is actively preventing the client from using the router.
+
+Do not infer Parent Control enforcement from a device disappearing from cmd 223/225. The canonical blocked/scheduled state must come from cmd 385 plus the current local time/day, while actual reconnect/disconnect behavior should be treated as an observed client effect.
+
+Recovery at the schedule end still needs verification. In particular, confirm whether the client reconnects automatically after 23:00 or requires manual reconnection.
