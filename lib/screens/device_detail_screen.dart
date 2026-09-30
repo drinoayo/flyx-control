@@ -15,44 +15,153 @@ class DeviceDetailScreen extends StatelessWidget {
     final controller = AppScope.of(context);
     final device = controller.deviceById(deviceId);
     if (device == null) {
-      return const Scaffold(body: Center(child: Text('Device is no longer available.')));
+      return const Scaffold(
+        body: Center(child: Text('Device is no longer available.')),
+      );
     }
+
+    final hasTraffic = controller.capabilities.perDeviceTraffic;
+    final canBlock = controller.capabilities.blocking;
 
     return Scaffold(
       appBar: AppBar(
         backgroundColor: FlyxColors.ink,
         surfaceTintColor: Colors.transparent,
         title: Text(device.name),
-        actions: [
-          IconButton(
-            onPressed: () => _rename(context, device),
-            icon: const Icon(Icons.edit_outlined),
-            tooltip: 'Rename',
-          ),
-        ],
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(18, 10, 18, 32),
         children: [
-          _Header(device: device),
+          _Header(device: device, hasTraffic: hasTraffic),
           const SizedBox(height: 24),
-          const SectionTitle(title: 'Usage'),
+
+          const SectionTitle(title: 'Connection'),
           const SizedBox(height: 10),
           SurfaceCard(
             child: Column(
               children: [
                 Row(
                   children: [
-                    Expanded(child: MetricLabel(label: 'TODAY', value: formatBytes(device.todayBytes))),
-                    Expanded(child: MetricLabel(label: 'THIS WEEK', value: formatBytes(device.weekBytes))),
-                    Expanded(child: MetricLabel(label: 'THIS MONTH', value: formatBytes(device.monthBytes))),
+                    Expanded(
+                      child: MetricLabel(
+                        label: 'WI-FI',
+                        value: device.wifiBand.isEmpty
+                            ? 'Connected'
+                            : device.wifiBand,
+                      ),
+                    ),
+                    Expanded(
+                      child: MetricLabel(
+                        label: 'SIGNAL',
+                        value: device.wifiRssiDbm == null
+                            ? '—'
+                            : '${device.wifiRssiDbm} dBm',
+                      ),
+                    ),
+                    Expanded(
+                      child: MetricLabel(
+                        label: 'OBSERVED',
+                        value: formatDuration(device.currentSession),
+                      ),
+                    ),
                   ],
                 ),
-                const SizedBox(height: 20),
-                _QuotaProgress(device: device),
+                if (device.wifiTxLinkMbps != null ||
+                    device.wifiRxLinkMbps != null) ...[
+                  const SizedBox(height: 18),
+                  const Divider(height: 1),
+                  const SizedBox(height: 18),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: MetricLabel(
+                          label: 'WI-FI RX LINK',
+                          value: device.wifiRxLinkMbps == null
+                              ? '—'
+                              : '${_cleanMbps(device.wifiRxLinkMbps!)} Mbps',
+                        ),
+                      ),
+                      Expanded(
+                        child: MetricLabel(
+                          label: 'WI-FI TX LINK',
+                          value: device.wifiTxLinkMbps == null
+                              ? '—'
+                              : '${_cleanMbps(device.wifiTxLinkMbps!)} Mbps',
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Link rate describes the Wi-Fi connection between this device and FlyX. It is not the device’s current internet speed.',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: FlyxColors.muted,
+                          ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
+
+          const SizedBox(height: 24),
+          const SectionTitle(title: 'Usage'),
+          const SizedBox(height: 10),
+          if (hasTraffic)
+            SurfaceCard(
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: MetricLabel(
+                          label: 'TODAY',
+                          value: formatBytes(device.todayBytes),
+                        ),
+                      ),
+                      Expanded(
+                        child: MetricLabel(
+                          label: 'THIS WEEK',
+                          value: formatBytes(device.weekBytes),
+                        ),
+                      ),
+                      Expanded(
+                        child: MetricLabel(
+                          label: 'THIS MONTH',
+                          value: formatBytes(device.monthBytes),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  _QuotaProgress(device: device),
+                ],
+              ),
+            )
+          else
+            SurfaceCard(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(
+                    Icons.query_stats_rounded,
+                    color: FlyxColors.yellow,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'FlyX exposes this device and its Wi-Fi association, but we have not yet verified per-device byte counters on your MTN firmware. FlyX Control will not label Wi-Fi link speed as data usage.',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: FlyxColors.muted,
+                          ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
           const SizedBox(height: 24),
           const SectionTitle(title: 'Data limit'),
           const SizedBox(height: 10),
@@ -60,54 +169,63 @@ class DeviceDetailScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        device.policy.dataLimitBytes == null
-                            ? 'No limit'
-                            : '${formatBytes(device.policy.dataLimitBytes!)} / ${_period(device.policy.period)}',
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: () => _setLimit(context, device),
-                      child: const Text('Change'),
-                    ),
-                  ],
+                Text(
+                  hasTraffic && canBlock
+                      ? (device.policy.dataLimitBytes == null
+                          ? 'No limit'
+                          : '${formatBytes(device.policy.dataLimitBytes!)} / ${_period(device.policy.period)}')
+                      : 'Waiting for router support',
+                  style: Theme.of(context).textTheme.titleLarge,
                 ),
                 const SizedBox(height: 7),
                 Text(
-                  'When the quota is reached, FlyX Control can pause this device automatically when the router exposes a compatible blocking rule.',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: FlyxColors.muted),
+                  hasTraffic && canBlock
+                      ? 'When the quota is reached, FlyX Control can pause this device automatically.'
+                      : 'A reliable quota needs both per-device traffic accounting and a verified router-side block action. We have not enabled either prematurely.',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: FlyxColors.muted,
+                      ),
                 ),
+                if (hasTraffic && canBlock) ...[
+                  const SizedBox(height: 14),
+                  TextButton(
+                    onPressed: () => _setLimit(context, device),
+                    child: const Text('Set data limit'),
+                  ),
+                ],
               ],
             ),
           ),
+
           const SizedBox(height: 24),
           const SectionTitle(title: 'Performance'),
           const SizedBox(height: 10),
           SurfaceCard(
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    Expanded(child: MetricLabel(label: 'DOWNLOAD NOW', value: formatRate(device.rxBytesPerSecond))),
-                    Expanded(child: MetricLabel(label: 'UPLOAD NOW', value: formatRate(device.txBytesPerSecond))),
-                  ],
-                ),
-                const SizedBox(height: 18),
-                const Divider(height: 1),
-                const SizedBox(height: 18),
-                Row(
-                  children: [
-                    Expanded(child: MetricLabel(label: 'CURRENT SESSION', value: formatDuration(device.currentSession))),
-                    Expanded(child: MetricLabel(label: 'ONLINE TODAY', value: formatDuration(device.totalOnlineToday))),
-                  ],
-                ),
-              ],
-            ),
+            child: hasTraffic
+                ? Row(
+                    children: [
+                      Expanded(
+                        child: MetricLabel(
+                          label: 'DOWNLOAD NOW',
+                          value: formatRate(device.rxBytesPerSecond),
+                        ),
+                      ),
+                      Expanded(
+                        child: MetricLabel(
+                          label: 'UPLOAD NOW',
+                          value: formatRate(device.txBytesPerSecond),
+                        ),
+                      ),
+                    ],
+                  )
+                : Text(
+                    'Per-device internet throughput is not available yet. The Network screen can still calculate the FlyX connection’s total live download and upload speed from the router’s WAN byte counters.',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: FlyxColors.muted,
+                        ),
+                  ),
           ),
+
           const SizedBox(height: 24),
           const SectionTitle(title: 'Device info'),
           const SizedBox(height: 10),
@@ -119,32 +237,75 @@ class DeviceDetailScreen extends StatelessWidget {
                 _InfoRow(label: 'IP address', value: device.ip),
                 const Divider(height: 24),
                 _InfoRow(label: 'MAC address', value: device.mac),
+                if (device.dhcpLeaseExpires != null) ...[
+                  const Divider(height: 24),
+                  _InfoRow(
+                    label: 'DHCP lease until',
+                    value: _formatDate(device.dhcpLeaseExpires!),
+                  ),
+                ],
               ],
             ),
           ),
+
           const SizedBox(height: 24),
-          SizedBox(
-            height: 54,
-            child: device.blocked
-                ? FilledButton.icon(
-                    onPressed: () => _toggleBlock(context, device, false),
-                    icon: const Icon(Icons.lock_open_rounded),
-                    label: const Text('Unblock device'),
-                  )
-                : OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: FlyxColors.danger,
-                      side: const BorderSide(color: Color(0x55FF6B6B)),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          if (canBlock)
+            SizedBox(
+              height: 54,
+              child: device.blocked
+                  ? FilledButton.icon(
+                      onPressed: () => _toggleBlock(context, device, false),
+                      icon: const Icon(Icons.lock_open_rounded),
+                      label: const Text('Unblock device'),
+                    )
+                  : OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: FlyxColors.danger,
+                        side: const BorderSide(color: Color(0x55FF6B6B)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      onPressed: () => _toggleBlock(context, device, true),
+                      icon: const Icon(Icons.block_rounded),
+                      label: const Text('Block device'),
                     ),
-                    onPressed: () => _toggleBlock(context, device, true),
-                    icon: const Icon(Icons.block_rounded),
-                    label: const Text('Block device'),
+            )
+          else
+            SurfaceCard(
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.shield_outlined,
+                    color: FlyxColors.muted,
                   ),
-          ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Block / Unblock is hidden for now because the current MTN firmware did not return a readable block list. This avoids a write that could accidentally change the router’s filter mode.',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: FlyxColors.muted,
+                          ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );
+  }
+
+  static String _cleanMbps(double value) {
+    if (value == value.roundToDouble()) return value.toStringAsFixed(0);
+    return value.toStringAsFixed(1);
+  }
+
+  static String _formatDate(DateTime value) {
+    final local = value.toLocal();
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${two(local.hour)}:${two(local.minute)} · '
+        '${two(local.day)}/${two(local.month)}';
   }
 
   static String _period(LimitPeriod period) => switch (period) {
@@ -153,89 +314,119 @@ class DeviceDetailScreen extends StatelessWidget {
         LimitPeriod.monthly => 'month',
       };
 
-  Future<void> _toggleBlock(BuildContext context, FlyxDevice device, bool blocked) async {
+  Future<void> _toggleBlock(
+    BuildContext context,
+    FlyxDevice device,
+    bool blocked,
+  ) async {
     if (blocked) {
       final yes = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
           title: Text('Block ${device.name}?'),
-          content: const Text('This device will lose internet access until you unblock it.'),
+          content: const Text(
+            'This device will lose internet access until you unblock it.',
+          ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Block')),
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Block'),
+            ),
           ],
         ),
       );
       if (yes != true) return;
     }
+
     try {
       await AppScope.of(context).setBlocked(device.id, blocked);
       if (context.mounted) Navigator.of(context).pop();
     } catch (e) {
-      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$e')),
+        );
+      }
     }
   }
 
-  Future<void> _rename(BuildContext context, FlyxDevice device) async {
-    final text = TextEditingController(text: device.name);
-    final name = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Rename device'),
-        content: TextField(controller: text, autofocus: true, decoration: const InputDecoration(hintText: 'Device name')),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(context, text.text.trim()), child: const Text('Save')),
-        ],
-      ),
-    );
-    if (name == null || name.isEmpty || !context.mounted) return;
-    try {
-      await AppScope.of(context).setDeviceName(device.id, name);
-    } catch (e) {
-      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
-    }
-  }
-
-  Future<void> _setLimit(BuildContext context, FlyxDevice device) async {
-    final existingGb = device.policy.dataLimitBytes == null ? '' : (device.policy.dataLimitBytes! / 1073741824).toStringAsFixed(0);
+  Future<void> _setLimit(
+    BuildContext context,
+    FlyxDevice device,
+  ) async {
+    final existingGb = device.policy.dataLimitBytes == null
+        ? ''
+        : (device.policy.dataLimitBytes! / 1073741824).toStringAsFixed(0);
     final text = TextEditingController(text: existingGb);
     var period = device.policy.period;
+
     final result = await showModalBottomSheet<DevicePolicy>(
       context: context,
       isScrollControlled: true,
       backgroundColor: FlyxColors.surface,
       builder: (context) => StatefulBuilder(
         builder: (context, setModalState) => Padding(
-          padding: EdgeInsets.fromLTRB(18, 20, 18, MediaQuery.viewInsetsOf(context).bottom + 24),
+          padding: EdgeInsets.fromLTRB(
+            18,
+            20,
+            18,
+            MediaQuery.viewInsetsOf(context).bottom + 24,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Set data limit', style: Theme.of(context).textTheme.headlineMedium),
+              Text(
+                'Set data limit',
+                style: Theme.of(context).textTheme.headlineMedium,
+              ),
               const SizedBox(height: 8),
-              Text('Set a quota for this device. Leave the amount blank to remove the limit.', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: FlyxColors.muted)),
+              Text(
+                'Set a quota for this device. Leave the amount blank to remove the limit.',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: FlyxColors.muted,
+                    ),
+              ),
               const SizedBox(height: 18),
               TextField(
                 controller: text,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(labelText: 'Allowance in GB', hintText: '10'),
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(
+                  labelText: 'Allowance in GB',
+                  hintText: '10',
+                ),
               ),
               const SizedBox(height: 14),
               SegmentedButton<LimitPeriod>(
                 segments: const [
-                  ButtonSegment(value: LimitPeriod.daily, label: Text('Daily')),
-                  ButtonSegment(value: LimitPeriod.weekly, label: Text('Weekly')),
-                  ButtonSegment(value: LimitPeriod.monthly, label: Text('Monthly')),
+                  ButtonSegment(
+                    value: LimitPeriod.daily,
+                    label: Text('Daily'),
+                  ),
+                  ButtonSegment(
+                    value: LimitPeriod.weekly,
+                    label: Text('Weekly'),
+                  ),
+                  ButtonSegment(
+                    value: LimitPeriod.monthly,
+                    label: Text('Monthly'),
+                  ),
                 ],
                 selected: {period},
-                onSelectionChanged: (value) => setModalState(() => period = value.first),
+                onSelectionChanged: (value) =>
+                    setModalState(() => period = value.first),
               ),
               const SizedBox(height: 20),
               FilledButton(
                 onPressed: () {
                   final gb = double.tryParse(text.text.trim());
-                  final bytes = gb == null ? null : (gb * 1073741824).round();
+                  final bytes =
+                      gb == null ? null : (gb * 1073741824).round();
                   Navigator.pop(
                     context,
                     DevicePolicy(
@@ -252,18 +443,28 @@ class DeviceDetailScreen extends StatelessWidget {
         ),
       ),
     );
+
     if (result == null || !context.mounted) return;
     try {
       await AppScope.of(context).setDevicePolicy(device.id, result);
     } catch (e) {
-      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$e')),
+        );
+      }
     }
   }
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.device});
+  const _Header({
+    required this.device,
+    required this.hasTraffic,
+  });
+
   final FlyxDevice device;
+  final bool hasTraffic;
 
   @override
   Widget build(BuildContext context) {
@@ -273,17 +474,28 @@ class _Header extends StatelessWidget {
         children: [
           Row(
             children: [
-              DeviceGlyph(kind: device.kind, blocked: device.blocked, size: 58),
+              DeviceGlyph(
+                kind: device.kind,
+                blocked: device.blocked,
+                size: 58,
+              ),
               const SizedBox(width: 15),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(device.name, style: Theme.of(context).textTheme.titleLarge),
+                    Text(
+                      device.name,
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
                     const SizedBox(height: 5),
                     StatusDot(
                       online: device.online && !device.blocked,
-                      label: device.blocked ? 'Blocked' : device.online ? 'Online' : 'Offline',
+                      label: device.blocked
+                          ? 'Blocked'
+                          : device.online
+                              ? 'Online'
+                              : 'Offline',
                     ),
                   ],
                 ),
@@ -296,9 +508,36 @@ class _Header extends StatelessWidget {
             const SizedBox(height: 17),
             Row(
               children: [
-                Expanded(child: MetricLabel(label: 'DOWN', value: '↓ ${formatRate(device.rxBytesPerSecond)}')),
-                Expanded(child: MetricLabel(label: 'UP', value: '↑ ${formatRate(device.txBytesPerSecond)}')),
-                MetricLabel(label: 'WI-FI', value: '${device.signalPercent}%'),
+                if (hasTraffic) ...[
+                  Expanded(
+                    child: MetricLabel(
+                      label: 'DOWN',
+                      value: '↓ ${formatRate(device.rxBytesPerSecond)}',
+                    ),
+                  ),
+                  Expanded(
+                    child: MetricLabel(
+                      label: 'UP',
+                      value: '↑ ${formatRate(device.txBytesPerSecond)}',
+                    ),
+                  ),
+                ] else
+                  Expanded(
+                    child: MetricLabel(
+                      label: 'CONNECTION',
+                      value: device.wifiBand.isEmpty
+                          ? 'Wi-Fi'
+                          : device.wifiBand,
+                    ),
+                  ),
+                MetricLabel(
+                  label: 'SIGNAL',
+                  value: device.wifiRssiDbm == null
+                      ? (device.signalPercent == 0
+                          ? '—'
+                          : '${device.signalPercent}%')
+                      : '${device.wifiRssiDbm} dBm',
+                ),
               ],
             ),
           ],
@@ -318,22 +557,39 @@ class _QuotaProgress extends StatelessWidget {
     if (limit == null || limit <= 0) {
       return Align(
         alignment: Alignment.centerLeft,
-        child: Text('No quota set', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: FlyxColors.muted)),
+        child: Text(
+          'No quota set',
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: FlyxColors.muted,
+              ),
+        ),
       );
     }
+
     final used = switch (device.policy.period) {
       LimitPeriod.daily => device.todayBytes,
       LimitPeriod.weekly => device.weekBytes,
       LimitPeriod.monthly => device.monthBytes,
     };
     final fraction = (used / limit).clamp(0.0, 1.0);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            Expanded(child: Text('${(fraction * 100).toStringAsFixed(0)}% of limit', style: Theme.of(context).textTheme.labelMedium)),
-            Text('${formatBytes(used)} / ${formatBytes(limit)}', style: Theme.of(context).textTheme.labelMedium?.copyWith(color: FlyxColors.muted)),
+            Expanded(
+              child: Text(
+                '${(fraction * 100).toStringAsFixed(0)}% of limit',
+                style: Theme.of(context).textTheme.labelMedium,
+              ),
+            ),
+            Text(
+              '${formatBytes(used)} / ${formatBytes(limit)}',
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: FlyxColors.muted,
+                  ),
+            ),
           ],
         ),
         const SizedBox(height: 9),
@@ -343,7 +599,9 @@ class _QuotaProgress extends StatelessWidget {
             value: fraction,
             minHeight: 9,
             backgroundColor: FlyxColors.line,
-            valueColor: AlwaysStoppedAnimation(fraction >= .9 ? FlyxColors.danger : FlyxColors.yellow),
+            valueColor: AlwaysStoppedAnimation(
+              fraction >= .9 ? FlyxColors.danger : FlyxColors.yellow,
+            ),
           ),
         ),
       ],
@@ -360,8 +618,21 @@ class _InfoRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Expanded(child: Text(label, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: FlyxColors.muted))),
-        Text(value, style: Theme.of(context).textTheme.labelLarge),
+        Expanded(
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: FlyxColors.muted,
+                ),
+          ),
+        ),
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            style: Theme.of(context).textTheme.labelLarge,
+          ),
+        ),
       ],
     );
   }
