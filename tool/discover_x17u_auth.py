@@ -254,7 +254,14 @@ def main() -> int:
         "authenticated": True,
         "read_only": True,
         "commands_tested": list(commands),
-        "commands_ok": [int(cmd) for cmd in responses],
+        "commands_ok": sorted(
+            int(key) for key in responses
+            if key.isdigit()
+        ),
+        "named_probes_ok": sorted(
+            key for key in responses
+            if not key.isdigit()
+        ),
         "errors": errors,
         "capabilities": {
             "connected_device_list": isinstance(device_rows, list),
@@ -319,7 +326,7 @@ def main() -> int:
     }
 
     if args.json:
-        print(json.dumps(report, indent=2, ensure_ascii=False))
+        print(json.dumps(report, indent=2, ensure_ascii=True))
         return 0
 
     print("FlyX authenticated read-only discovery")
