@@ -216,6 +216,19 @@ def main() -> int:
         except Exception as exc:
             errors[str(cmd)] = str(exc)
 
+    # The stock UI's Wi-Fi blacklist/whitelist component uses command 278
+    # with subcmd "0" for 5 GHz and subcmd "1" for 2.4 GHz.
+    for label, subcmd in (("278_5g", "0"), ("278_24g", "1")):
+        try:
+            responses[label] = read_command(
+                host,
+                278,
+                session_id,
+                fields={"subcmd": subcmd},
+            )
+        except Exception as exc:
+            errors[label] = str(exc)
+
     d223 = responses.get("223", {})
     d402 = responses.get("402", {})
     d224 = responses.get("224", {})
@@ -224,6 +237,8 @@ def main() -> int:
     d25 = responses.get("25", {})
     d23 = responses.get("23", {})
     d278 = responses.get("278", {})
+    d278_5g = responses.get("278_5g", {})
+    d278_24g = responses.get("278_24g", {})
     d350 = responses.get("350", {})
     d355 = responses.get("355", {})
 
@@ -262,6 +277,34 @@ def main() -> int:
             "wireless_filter_fields": sorted(
                 key for key in d278.keys()
                 if key not in {"success", "cmd", "message"}
+            ),
+            "wifi_5_filter_readable": isinstance(
+                d278_5g.get("datas"), dict
+            ),
+            "wifi_5_filter_mode": (
+                d278_5g.get("datas", {}).get("macfilter")
+                if isinstance(d278_5g.get("datas"), dict)
+                else None
+            ),
+            "wifi_5_filter_count": (
+                len(d278_5g.get("datas", {}).get("maclist", []))
+                if isinstance(d278_5g.get("datas"), dict)
+                and isinstance(d278_5g.get("datas", {}).get("maclist"), list)
+                else None
+            ),
+            "wifi_24_filter_readable": isinstance(
+                d278_24g.get("datas"), dict
+            ),
+            "wifi_24_filter_mode": (
+                d278_24g.get("datas", {}).get("macfilter")
+                if isinstance(d278_24g.get("datas"), dict)
+                else None
+            ),
+            "wifi_24_filter_count": (
+                len(d278_24g.get("datas", {}).get("maclist", []))
+                if isinstance(d278_24g.get("datas"), dict)
+                and isinstance(d278_24g.get("datas", {}).get("maclist"), list)
+                else None
             ),
             "ussd_fields": sorted(
                 key for key in d350.keys()
