@@ -2,68 +2,77 @@
 
 ## Confirmed API family
 
-The X17U should be treated as a Tozed device, not as a ZTE `reqproc` router.
-
-Its web UI communicates through:
-
-```text
-POST /cgi-bin/http.cgi
-Content-Type: application/json;charset=UTF-8
-```
-
-A read request is shaped like:
-
-```json
-{"cmd": 133, "method": "GET", "sessionId": ""}
-```
-
-The first repository build incorrectly assumed `/reqproc/proc_get`. A real MTN X17U returned HTTP 404 for that path, which led to this correction.
-
-## Safe unauthenticated reads
-
-The read-only discovery utility currently checks:
-
-- command 113: liveness/basic status;
-- command 133: WAN state, uptime, cumulative WAN byte counters and core RF metrics;
-- command 205: richer RF/operator/monthly-flow information.
-
-These calls do not log in and do not change settings.
+The X17U is a Tozed device, not a ZTE reqproc router. Its web UI communicates through POST /cgi-bin/http.cgi.
 
 ## Authentication
 
-The live Flutter client supports the X17U challenge flow:
+The tested MTN firmware uses this login sequence:
 
-1. read command 232 for the challenge token;
-2. calculate SHA-256 of `token + password`;
-3. submit command 100 with the username, digest and a client-generated session identifier;
-4. retain the session identifier returned by the router;
-5. read command 233 before each write to obtain a fresh write token.
+1. Read command 232 for the challenge token.
+2. Calculate SHA-256 of token + password.
+3. Submit command 100 with username, digest and a generated session identifier.
+4. Retain the returned session identifier.
+5. Read command 233 before a write to obtain a fresh token.
 
-The app avoids retry loops around login so an incorrect password cannot be hammered repeatedly.
+## Confirmed reads on the tested MTN firmware
 
-## Connected devices and blocking
+Unauthenticated monitoring:
 
-After login, the adapter can safely read:
+- 113 — basic status/liveness
+- 133 — WAN state and core RF information
+- 205 — richer RF/operator information
 
-- command 223 for `dhcp_list_info`;
-- command 23 for filter rules;
-- commands 28 and 30 as capability checks for filter modes.
+Authenticated read-only probes:
 
-A blocked device can disappear from the active DHCP/association list, so FlyX Control also constructs the Blocked view from filter rules. That lets a blocked client remain visible even while offline.
+- 223 — connected clients via dhcp_list_info
+- 224 — 2.4 GHz association data; empty on the tested setup
+- 225 — 5 GHz association data; returned two clients, RSSI, SSID and IP information
+- 18 — cumulative WAN byte/packet counters plus router uptime
+- 337 — monthly traffic total, monthly down/up totals and traffic-limit settings
+- 401 — dashboard/network summary plus connected clients
+- 207 — CPU, temperature, memory, firmware/hardware detail
+- 23/28/30 — accepted, but only success/cmd/message were returned, with no readable rule/mode structure
 
-The current block implementation preserves existing rules, switches the router to deny-list semantics, writes IPv4 and IPv6 deny rules for the selected MAC, then applies the change. It is still capability-gated and should be tested on the user's exact firmware before being treated as production-stable.
+Command 25 returned LIMITED_ACCESS on the tested MTN account.
+
+Command 402 returned malformed JSON containing an invalid control character on the tested firmware. It is not required because commands 223 and 401 already provide the client list.
+
+## Connected devices
+
+Command 223 is currently the canonical device-list source. The tested device entries expose MAC address, LAN IP, hostname, interface, DHCP expiry, flow and IPv6 address.
+
+The flow value was 0 for both active clients during discovery, so it is not treated as verified per-device traffic accounting.
+
+Command 225 adds 5 GHz association information. It returned client RSSI successfully, while txrate and rxrate were both zero on the tested setup. FlyX Control therefore displays the RSSI/band association but does not present zero link-rate fields as real internet speed.
 
 ## Usage and live speed
 
-Command 133 exposes cumulative WAN RX/TX byte counters and router uptime on known X17U firmware. FlyX Control differences consecutive counter samples to calculate live throughput and re-baselines after a reboot or counter rewind.
+Command 18 exposes verified cumulative WAN RX/TX byte counters and uptime. FlyX Control differences consecutive counter samples to calculate whole-router live throughput. Counter rewinds or uptime rewinds re-baseline the calculation rather than creating a false spike.
 
-Per-device daily/weekly/monthly usage still requires either:
+A local SQLite history stores safe WAN deltas. That enables daily and weekly total usage even though the router itself primarily exposes cumulative values. If the app was closed across midnight, an unknown interval is distributed proportionally across the local calendar days it crossed.
 
-- per-device cumulative counters exposed by another X17U command; or
-- another reliable router-side accounting source.
+Command 337 provides the router's current monthly traffic totals, including separate download and upload values.
 
-The app's SQLite layer is already prepared to retain history once those counters are identified.
+## Router health
+
+Command 207 exposes CPU usage, device temperature, free memory, firmware version, board/hardware identifiers and router uptime. These are surfaced in the Network screen.
+
+## Blocking
+
+Do not enable router-side blocking merely because commands 23/28/30 return success: true. On the tested MTN firmware they do not return the existing filter list or filter-mode structure.
+
+Without readable state, a write could overwrite unknown rules or select the wrong allow/deny semantics. Block/Unblock therefore remains capability-gated.
+
+The next safe approach is to inspect the stock router UI JavaScript and, if necessary, capture the stock UI's own request while changing a test device.
+
+## Per-device limits
+
+Per-device quotas require both trustworthy per-device byte accounting and a verified enforcement mechanism such as a block or QoS rule.
+
+Neither is confirmed on the tested MTN firmware yet. Command 25 is access-restricted and the known client-list flow fields remain zero.
+
+The app must not substitute Wi-Fi RSSI or association link rate for internet data usage.
 
 ## Safety rule
 
-Never guess a write command. Read and verify first, preserve existing configuration, and keep high-impact controls disabled until the required fields and command semantics are confirmed against the real MTN firmware.
+Never guess a write command. Read and verify first, preserve existing configuration, and keep high-impact controls disabled until the exact command semantics are confirmed against the real MTN firmware.
