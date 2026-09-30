@@ -183,6 +183,8 @@ def main() -> int:
     # 278      wireless filter endpoint used by the stock UI
     # 350      USSD state/read endpoint
     # 355      alternate traffic-flow endpoint
+    # 397      parental-control summary/state
+    # 385      parental-control per-device rules; stock UI sends getfun=true
     probes: tuple[tuple[int, dict[str, Any]], ...] = (
         (223, {}),
         (224, {}),
@@ -199,6 +201,8 @@ def main() -> int:
         (278, {}),
         (350, {}),
         (355, {}),
+        (397, {}),
+        (385, {"getfun": True}),
     )
     commands = tuple(cmd for cmd, _ in probes)
 
@@ -241,6 +245,8 @@ def main() -> int:
     d278_24g = responses.get("278_24g", {})
     d350 = responses.get("350", {})
     d355 = responses.get("355", {})
+    d397 = responses.get("397", {})
+    d385 = responses.get("385", {})
 
     device_rows = d223.get("dhcp_list_info")
     if not isinstance(device_rows, list):
@@ -320,6 +326,18 @@ def main() -> int:
             "alternate_flow_fields": sorted(
                 key for key in d355.keys()
                 if key not in {"success", "cmd", "message"}
+            ),
+            "parent_control_fields": sorted(
+                key for key in d397.keys()
+                if key not in {"success", "cmd", "message"}
+            ),
+            "parent_control_rules_readable": isinstance(
+                d385.get("datas"), list
+            ),
+            "parent_control_rule_count": (
+                len(d385.get("datas", []))
+                if isinstance(d385.get("datas"), list)
+                else None
             ),
         },
         "responses": sanitize(responses),
