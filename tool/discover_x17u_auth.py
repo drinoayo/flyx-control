@@ -14,12 +14,11 @@ import json
 import re
 import secrets
 import sys
-import urllib.error
 import urllib.request
 from typing import Any
 
 
-def request_json(host: str, payload: dict[str, Any], timeout: float = 5.0) -> dict[str, Any]:
+def request_json(host: str, payload: dict[str, Any], timeout: float = 6.0) -> dict[str, Any]:
     url = f"http://{host}/cgi-bin/http.cgi"
     request = urllib.request.Request(
         url,
@@ -27,7 +26,7 @@ def request_json(host: str, payload: dict[str, Any], timeout: float = 5.0) -> di
         headers={
             "Content-Type": "application/json;charset=UTF-8",
             "Accept": "application/json, text/plain, */*",
-            "User-Agent": "FlyX-Control-Authenticated-Discovery/0.1",
+            "User-Agent": "FlyX-Control-Authenticated-Discovery/0.2",
             "Referer": f"http://{host}/",
         },
         method="POST",
@@ -87,7 +86,22 @@ def fingerprint(value: str, prefix: str) -> str:
 def sanitize(value: Any, key: str = "") -> Any:
     normalized = re.sub(r"[^a-z0-9]", "", key.lower())
 
-    if any(token in normalized for token in ("imei", "imsi", "iccid", "serial", "devicesn", "modulesn", "msisdn", "password", "passwd")):
+    if any(
+        token in normalized
+        for token in (
+            "imei",
+            "imsi",
+            "iccid",
+            "serial",
+            "devicesn",
+            "modulesn",
+            "msisdn",
+            "password",
+            "passwd",
+            "wpa",
+            "key",
+        )
+    ):
         return "[redacted]" if str(value) else value
 
     if "mac" in normalized and str(value):
@@ -100,11 +114,19 @@ def sanitize(value: Any, key: str = "") -> Any:
             return ".".join(parts[:3] + ["x"])
         return "[redacted-ip]"
 
+    if normalized in {"ipv6", "ipv6ip", "ipv6address"} and str(value):
+        return "[redacted-ipv6]"
+
     if isinstance(value, dict):
         return {str(k): sanitize(v, str(k)) for k, v in value.items()}
     if isinstance(value, list):
         return [sanitize(item, key) for item in value]
     return value
+
+
+def list_len(payload: dict[str, Any], key: str) -> int | None:
+    value = payload.get(key)
+    return len(value) if isinstance(value, list) else None
 
 
 def main() -> int:
@@ -138,8 +160,18 @@ def main() -> int:
     finally:
         password = ""
 
-    # Known read-only authenticated calls from the current X17U mapping.
-    commands = (223, 23, 28, 30)
+    # All commands below are GET/read probes. No configuration is changed.
+    #
+    # 223/402  connected-client sources
+    # 224/225  2.4/5 GHz Wi-Fi association detail
+    # 18       WAN flow counters on some X17U firmware
+    # 337      traffic-plan/monthly usage data
+    # 401      dashboard/WAN data on related firmware
+    # 207      CPU/RAM/temperature on related firmware
+    # 25       possible per-client speed-policy structure on related firmware
+    # 23/28/30 filter-related reads
+    commands = (223, 224, 225, 402, 18, 337, 401, 207, 25, 23, 28, 30)
+
     responses: dict[str, Any] = {}
     errors: dict[str, str] = {}
 
@@ -149,8 +181,19 @@ def main() -> int:
         except Exception as exc:
             errors[str(cmd)] = str(exc)
 
-    device_rows = responses.get("223", {}).get("dhcp_list_info")
-    filter_rows = responses.get("23", {}).get("datas")
+    d223 = responses.get("223", {})
+    d402 = responses.get("402", {})
+    d224 = responses.get("224", {})
+    d225 = responses.get("225", {})
+    d337 = responses.get("337", {})
+    d25 = responses.get("25", {})
+    d23 = responses.get("23", {})
+
+    device_rows = d223.get("dhcp_list_info")
+    if not isinstance(device_rows, list):
+        device_rows = d402.get("dhcp_list_info")
+
+    filter_rows = d23.get("datas")
 
     report = {
         "host": host,
@@ -163,9 +206,21 @@ def main() -> int:
         "capabilities": {
             "connected_device_list": isinstance(device_rows, list),
             "connected_device_count": len(device_rows) if isinstance(device_rows, list) else None,
+            "wifi_24_client_detail": isinstance(d224.get("wlan24g_wifi_info"), list),
+            "wifi_24_client_count": list_len(d224, "wlan24g_wifi_info"),
+            "wifi_5_client_detail": isinstance(d225.get("wlan5g_wifi_info"), list),
+            "wifi_5_client_count": list_len(d225, "wlan5g_wifi_info"),
+            "monthly_usage_fields": any(
+                key in d337
+                for key in ("mon_download_flow", "dl_mon_flow", "ul_mon_flow", "limitSize")
+            ),
+            "possible_speed_policy_structure": len(d25) > 2,
             "filter_rule_list": isinstance(filter_rows, list),
             "filter_rule_count": len(filter_rows) if isinstance(filter_rows, list) else None,
-            "filter_mode_ipv4_ipv6": "28" in responses and "30" in responses,
+            "filter_mode_detail": (
+                isinstance(responses.get("28", {}).get("datas"), list)
+                or isinstance(responses.get("30", {}).get("datas"), list)
+            ),
         },
         "responses": sanitize(responses),
     }
@@ -175,12 +230,11 @@ def main() -> int:
         return 0
 
     print("FlyX authenticated read-only discovery")
-    print("=" * 48)
-    print(f"Connected-device list: {report['capabilities']['connected_device_list']}")
-    print(f"Connected devices:     {report['capabilities']['connected_device_count']}")
-    print(f"Filter rules:          {report['capabilities']['filter_rule_list']}")
-    print(f"Filter rule count:     {report['capabilities']['filter_rule_count']}")
-    print(f"Filter modes readable: {report['capabilities']['filter_mode_ipv4_ipv6']}")
+    print("=" * 52)
+    for name, value in report["capabilities"].items():
+        print(f"{name:31} {value}")
+    if errors:
+        print(f"\nRead errors: {errors}")
     print("\nNo router settings were changed.")
     return 0
 
