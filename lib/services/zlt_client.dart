@@ -46,6 +46,7 @@ class ZltClient {
   Future<Map<String, dynamic>> command(
     int cmd, {
     bool authenticated = false,
+    Map<String, dynamic> fields = const {},
   }) async {
     if (authenticated && !isAuthenticated) {
       throw ZltLoginException('Command $cmd requires a router login.');
@@ -55,6 +56,7 @@ class ZltClient {
       'cmd': cmd,
       'method': 'GET',
       'sessionId': authenticated ? _sessionId! : '',
+      ...fields,
     });
 
     _throwIfRefused(body, cmd);
@@ -127,17 +129,25 @@ class ZltClient {
     return answer;
   }
 
-  /// Safe discovery. The three unauthenticated reads are always attempted.
+  /// Read-only capability discovery.
   ///
-  /// If the caller already logged in, additional GET-style reads are used to
-  /// confirm the connected-device list and filter controls. No settings change.
+  /// The authenticated probes below are GET-style commands only. They do not
+  /// change Wi-Fi, filters, radio settings or any other router configuration.
   Future<ZltDiscoveryReport> discover() async {
     final responses = <int, Map<String, dynamic>>{};
     final errors = <int, String>{};
 
-    Future<void> probe(int cmd, {bool authenticated = false}) async {
+    Future<void> probe(
+      int cmd, {
+      bool authenticated = false,
+      Map<String, dynamic> fields = const {},
+    }) async {
       try {
-        responses[cmd] = await command(cmd, authenticated: authenticated);
+        responses[cmd] = await command(
+          cmd,
+          authenticated: authenticated,
+          fields: fields,
+        );
       } catch (e) {
         errors[cmd] = '$e';
       }
@@ -149,12 +159,23 @@ class ZltClient {
 
     if (isAuthenticated) {
       await probe(223, authenticated: true);
+      await probe(224, authenticated: true);
+      await probe(225, authenticated: true);
+      await probe(402, authenticated: true);
+
+      await probe(18, authenticated: true);
+      await probe(337, authenticated: true);
+      await probe(207, authenticated: true);
+
       await probe(23, authenticated: true);
       await probe(28, authenticated: true);
       await probe(30, authenticated: true);
     }
 
-    final stationRows = responses[223]?['dhcp_list_info'];
+    final stationRows =
+        responses[223]?['dhcp_list_info'] ?? responses[402]?['dhcp_list_info'];
+    final wifi24Rows = responses[224]?['wlan24g_wifi_info'];
+    final wifi5Rows = responses[225]?['wlan5g_wifi_info'];
     final ruleRows = responses[23]?['datas'];
 
     return ZltDiscoveryReport(
@@ -162,8 +183,14 @@ class ZltClient {
       errors: errors,
       verifiedCommands: responses.keys.toList()..sort(),
       hasStationList: stationRows is List,
+      hasWifi24Clients: wifi24Rows is List,
+      hasWifi5Clients: wifi5Rows is List,
+      hasMonthlyUsage:
+          responses[337]?.containsKey('mon_download_flow') == true ||
+              responses[205]?.containsKey('mon_total_flow') == true,
       hasFilterRules: ruleRows is List,
-      hasFilterModes: responses.containsKey(28) && responses.containsKey(30),
+      hasFilterModes:
+          responses[28]?['datas'] is List || responses[30]?['datas'] is List,
     );
   }
 
@@ -219,6 +246,9 @@ class ZltDiscoveryReport {
     required this.errors,
     required this.verifiedCommands,
     required this.hasStationList,
+    required this.hasWifi24Clients,
+    required this.hasWifi5Clients,
+    required this.hasMonthlyUsage,
     required this.hasFilterRules,
     required this.hasFilterModes,
   });
@@ -227,10 +257,18 @@ class ZltDiscoveryReport {
   final Map<int, String> errors;
   final List<int> verifiedCommands;
   final bool hasStationList;
+  final bool hasWifi24Clients;
+  final bool hasWifi5Clients;
+  final bool hasMonthlyUsage;
   final bool hasFilterRules;
   final bool hasFilterModes;
 
+  bool get hasWifiClientDetails => hasWifi24Clients || hasWifi5Clients;
+
+  /// Blocking stays disabled until the router actually returns readable filter
+  /// state. Merely accepting cmd 23/28/30 with an empty message is not enough.
   bool get canBlock => hasFilterRules && hasFilterModes;
+
   bool supportsCommand(int cmd) => verifiedCommands.contains(cmd);
 }
 
