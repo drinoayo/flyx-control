@@ -15,7 +15,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final List<double> _history = [2.4, 2.8, 3.1, 2.6, 3.8, 4.2, 3.6, 4.8, 4.4, 5.1, 4.7, 5.4];
+  final List<double> _history = [];
 
   @override
   Widget build(BuildContext context) {
@@ -87,7 +87,10 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 children: [
                   for (var i = 0; i < online.take(3).length; i++) ...[
-                    _HomeDeviceRow(device: online[i]),
+                    _HomeDeviceRow(
+                      device: online[i],
+                      hasTraffic: controller.capabilities.perDeviceTraffic,
+                    ),
                     if (i < online.take(3).length - 1)
                       const Divider(height: 1, indent: 72, endIndent: 18),
                   ],
@@ -95,23 +98,41 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             const SizedBox(height: 28),
-            const SectionTitle(title: 'This week'),
+            const SectionTitle(title: 'Data usage'),
             const SizedBox(height: 10),
             SurfaceCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    network == null ? '—' : formatBytes(network.todayBytes),
-                    style: Theme.of(context).textTheme.displaySmall,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: MetricLabel(
+                          label: 'TODAY',
+                          value: network == null
+                              ? '—'
+                              : formatBytes(network.todayBytes),
+                        ),
+                      ),
+                      Expanded(
+                        child: MetricLabel(
+                          label: 'THIS MONTH',
+                          value: network == null
+                              ? '—'
+                              : formatBytes(network.monthBytes),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 3),
-                  Text(
-                    'used today',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: FlyxColors.muted),
-                  ),
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 20),
                   UsageBars(points: controller.weeklyUsage),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Daily history is calculated locally from the router’s cumulative WAN counters.',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: FlyxColors.muted,
+                        ),
+                  ),
                 ],
               ),
             ),
@@ -132,8 +153,15 @@ class _HomeScreenState extends State<HomeScreen> {
                   Expanded(
                     child: MetricLabel(
                       label: 'Internet uptime',
-                      value: network == null ? '—' : '${network.internetUptimePercent.toStringAsFixed(1)}%',
-                      valueColor: FlyxColors.success,
+                      value: network == null
+                          ? '—'
+                          : network.internetUptimePercent <= 0
+                              ? 'Collecting'
+                              : '${network.internetUptimePercent.toStringAsFixed(1)}%',
+                      valueColor: network != null &&
+                              network.internetUptimePercent > 0
+                          ? FlyxColors.success
+                          : FlyxColors.muted,
                     ),
                   ),
                 ],
@@ -248,7 +276,12 @@ class _NetworkHero extends StatelessWidget {
                   value: '↑ ${formatRate(network.uploadBytesPerSecond)}',
                 ),
               ),
-              MetricLabel(label: 'LATENCY', value: '${network.latencyMs} ms'),
+              MetricLabel(
+                label: 'LATENCY',
+                value: network.latencyMs <= 0
+                    ? '—'
+                    : '${network.latencyMs} ms',
+              ),
             ],
           ),
         ],
@@ -258,8 +291,13 @@ class _NetworkHero extends StatelessWidget {
 }
 
 class _HomeDeviceRow extends StatelessWidget {
-  const _HomeDeviceRow({required this.device});
+  const _HomeDeviceRow({
+    required this.device,
+    required this.hasTraffic,
+  });
+
   final FlyxDevice device;
+  final bool hasTraffic;
 
   @override
   Widget build(BuildContext context) {
@@ -280,8 +318,23 @@ class _HomeDeviceRow extends StatelessWidget {
                   Text(device.name, style: Theme.of(context).textTheme.titleMedium),
                   const SizedBox(height: 3),
                   Text(
-                    '↓ ${formatRate(device.rxBytesPerSecond)}  ·  ${formatBytes(device.todayBytes)} today',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: FlyxColors.muted),
+                    hasTraffic
+                        ? '↓ ${formatRate(device.rxBytesPerSecond)}  ·  ${formatBytes(device.todayBytes)} today'
+                        : [
+                            if (device.wifiBand.isNotEmpty) device.wifiBand,
+                            if (device.wifiRssiDbm != null)
+                              '${device.wifiRssiDbm} dBm',
+                          ].join(' · ').isEmpty
+                            ? 'Connected'
+                            : [
+                                if (device.wifiBand.isNotEmpty)
+                                  device.wifiBand,
+                                if (device.wifiRssiDbm != null)
+                                  '${device.wifiRssiDbm} dBm',
+                              ].join(' · '),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: FlyxColors.muted,
+                        ),
                   ),
                 ],
               ),
