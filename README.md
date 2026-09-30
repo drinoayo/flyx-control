@@ -2,109 +2,74 @@
 
 A premium, local-first mobile controller for the MTN FlyX / Tozed ZLT X17U router.
 
-FlyX Control is being built as a proper consumer network-control app rather than a wrapper around the router's web page. The UI is usable with demo data now, while the live adapter is being verified against the real MTN X17U firmware one capability at a time.
+FlyX Control is being built as a proper consumer network-control app rather than a wrapper around the router's web page. The live adapter is being verified against a real MTN X17U firmware one capability at a time, and unsupported controls stay hidden instead of being simulated.
 
 ## What is already built
 
 - Premium dark mobile UI with restrained MTN-yellow accents and Inter typography.
-- Home dashboard with signal, throughput, latency, device activity, weekly usage and uptime cards.
-- All / Online / Blocked device views.
-- Device detail pages with live traffic, daily/weekly/monthly usage, current-session uptime, total online time, friendly names, block/unblock UI and data-quota controls.
-- Network dashboard with RSRP/RSRQ/SINR/PCI/bands, signal history and connection-health UI.
-- Connect-to-router flow with encrypted local credential storage.
-- Native Tozed X17U API client using `POST /cgi-bin/http.cgi`.
+- Home dashboard with cellular signal, live total WAN throughput, data usage, device activity and router uptime.
+- All / Online / Blocked device views with capability-aware states.
+- Real connected-device discovery from the authenticated X17U client list.
+- Real 5 GHz association detail, including per-client RSSI where exposed.
+- Device detail pages that distinguish Wi-Fi association information from unverified per-device internet traffic.
+- Network dashboard with RSRP/RSRQ/SINR/PCI/bands, signal history, cumulative usage and router-health information.
+- Connect-to-router flow with encrypted local credential storage and automatic reconnection on later launches.
+- Native Tozed X17U API client using POST /cgi-bin/http.cgi.
 - X17U challenge-response login flow and rotating write token support.
-- Real WAN/status reads, router uptime, cellular signal values and cumulative traffic counters.
-- Real connected-device parsing through the authenticated device-list command.
-- Filter-rule discovery and guarded block/unblock implementation.
-- SQLite infrastructure for long-term per-device usage history.
-- Standalone read-only X17U discovery utility with no third-party Python dependencies.
+- Real WAN byte counters, router uptime, monthly download/upload totals, CPU usage, temperature, memory and firmware version.
+- SQLite-backed local daily/weekly usage history derived from verified cumulative WAN counters.
+- Safe read-only X17U discovery utilities and a stock-web-UI inspector.
 
-## X17U API mapping
+## Confirmed X17U API mapping
 
-The MTN FlyX ZLT X17U is a Tozed device. Its web UI uses a JSON command endpoint:
+The current tested mapping includes:
 
-```text
-POST /cgi-bin/http.cgi
-```
+- 113 — basic status/liveness
+- 133 — WAN state and core radio information
+- 205 — richer radio/operator information
+- 232 — login challenge
+- 100 — login
+- 233 — authenticated write token
+- 223 — connected-device list
+- 224 — 2.4 GHz association information; empty on the tested setup
+- 225 — 5 GHz association information, including client RSSI
+- 18 — cumulative WAN RX/TX bytes and router uptime
+- 337 — monthly traffic totals and traffic-limit configuration fields
+- 401 — dashboard/network summary plus connected-device data
+- 207 — CPU, temperature, memory, firmware and hardware status
+- 23, 28, 30 — accepted as reads, but no readable filter-rule state is returned
 
-Read requests use a JSON body shaped like:
+Command 25 returns LIMITED_ACCESS on the tested MTN account.
 
-```json
-{"cmd": 133, "method": "GET", "sessionId": ""}
-```
+## Blocking and per-device limits
 
-The current safe mapping includes:
+The tested firmware accepts filter-related commands but does not expose the current filter list or mode in readable form. FlyX Control therefore keeps router-side Block/Unblock disabled for now. Writing a guessed deny-list configuration could lock legitimate devices out of the router.
 
-- `113` — liveness/basic status
-- `133` — WAN state, router uptime, cumulative WAN byte counters and core RF values
-- `205` — richer RF/operator/monthly-flow information
-- `232` — login challenge
-- `100` — login
-- `233` — authenticated write token
-- `223` — connected-device list
-- `23` — filter rules
+The connected-device list includes a flow field, but it currently reports 0 for active clients. The 5 GHz association command also reports txrate and rxrate as 0 on the tested setup. Those fields are not treated as real per-device internet usage or speed.
 
-Filter-mode/write commands are implemented defensively and remain capability-gated.
+Daily and weekly whole-router usage is still possible: FlyX Control records deltas from the verified cumulative WAN byte counters locally. Monthly total/download/upload values come directly from the router.
 
-## Important distinction
+## Safe discovery
 
-The demo layer makes the complete product experience visible before every firmware feature is mapped. The live adapter does **not** pretend unsupported controls work.
+While connected to the FlyX Wi-Fi:
 
-That matters for actions such as blocking, quotas, Wi-Fi changes, reboot, SMS, USSD, band controls and QoS. Potentially disruptive actions are enabled only after the required X17U commands are verified.
+    python tool/discover_x17u.py
 
-## Safe X17U discovery without Flutter
+Authenticated read-only discovery:
 
-While your computer is connected to the FlyX Wi-Fi:
+    python tool/discover_x17u_auth.py --json > flyx-auth-report.json
 
-```bash
-python tool/discover_x17u.py
-```
+Inspect the stock router web UI JavaScript without logging in or sending router commands:
 
-or save a machine-readable report:
+    python tool/inspect_x17u_ui.py --json > flyx-ui-report.json
 
-```bash
-python tool/discover_x17u.py --json > flyx-report.json
-```
+Do not publish unredacted router reports containing device identifiers.
 
-The discovery tool is read-only. It does not log in and does not change router settings. It currently probes only known safe status commands.
+## Next live-device milestones
 
-Do not publish unredacted reports containing device identifiers.
-
-## Run the Flutter app
-
-Flutter is not bundled in this repository. Install a current stable Flutter SDK, then from this folder:
-
-```bash
-flutter create --project-name flyx_control --org com.etchpoint.flyxcontrol --platforms=android,ios .
-flutter pub get
-flutter run
-```
-
-If `flutter create` replaces `lib/main.dart` on your Flutter version, restore the repository's `lib/` folder after running the command.
-
-### Android local HTTP
-
-The FlyX admin interface is local HTTP rather than HTTPS. Merge the files under `platform_patches/android/` into the generated Android project:
-
-- add INTERNET/ACCESS_NETWORK_STATE permissions;
-- set `android:usesCleartextTraffic="true"`;
-- copy `network_security_config.xml` to `android/app/src/main/res/xml/` and reference it from the application element.
-
-### iOS local network
-
-Merge `platform_patches/ios/Info.plist.snippet.xml` into `ios/Runner/Info.plist` so iOS can access the router over the local network.
-
-## Next live-device milestone
-
-Run the discovery utility against the real MTN X17U and use the returned field set to finish:
-
-1. exact RF field behavior on the MTN firmware;
-2. per-device cumulative RX/TX counters, if exposed;
-3. device uptime/session fields;
-4. quota/QoS controls;
-5. Wi-Fi settings;
-6. SMS and USSD;
-7. reboot, network-mode and advanced radio controls.
-
-Historical daily/weekly/monthly usage can then be built locally from cumulative counters even where the router does not retain that history itself.
+1. Identify the stock UI's exact MAC-filter/block payload before enabling device blocking.
+2. Determine whether this MTN firmware exposes any usable per-device byte accounting through another command.
+3. Map Wi-Fi settings.
+4. Map SMS and USSD.
+5. Verify reboot, network-mode and advanced radio controls.
+6. Add persistent friendly device names and richer local device history.
