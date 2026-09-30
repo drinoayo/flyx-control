@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Read-only inspection of the X17U web UI JavaScript.
+"""Read-only inspection of the X17U stock web UI.
 
-Downloads the router's public HTML/JS assets and searches them for references
-that may reveal the exact command IDs and payload shapes used by the stock UI.
+Version 0.2 is more tolerant of router front-ends that do not place ordinary
+<script src="..."> tags on /. It follows same-origin HTML/iframe/meta-refresh
+references, discovers JS-like URLs from script/link/src/href attributes and
+quoted strings, and records small sanitized previews of entry documents.
 
 No login is performed and no router command is sent.
 """
@@ -15,6 +17,7 @@ import re
 import sys
 import urllib.parse
 import urllib.request
+from collections import deque
 from typing import Any
 
 PATTERNS = [
@@ -44,32 +47,78 @@ PATTERNS = [
     r"cmd\s*[:=]\s*402\b",
 ]
 
-SCRIPT_RE = re.compile(
-    r"<script\b[^>]*?src=[\"']([^\"']+)[\"'][^>]*?>",
+ATTR_RE = re.compile(
+    r"""\b(?:src|href)\s*=\s*["']([^"'#]+)["']""",
+    re.IGNORECASE,
+)
+QUOTED_ASSET_RE = re.compile(
+    r"""["']([^"'\s<>]+\.(?:js|mjs|cjs|html?|css)(?:\?[^"'\s<>]*)?)["']""",
+    re.IGNORECASE,
+)
+META_REFRESH_RE = re.compile(
+    r"""<meta\b[^>]*http-equiv\s*=\s*["']?refresh["']?[^>]*content\s*=\s*["'][^"']*?url\s*=\s*([^"';>]+)""",
+    re.IGNORECASE,
+)
+IFRAME_RE = re.compile(
+    r"""<iframe\b[^>]*src\s*=\s*["']([^"']+)["']""",
     re.IGNORECASE,
 )
 
+ENTRY_PATHS = (
+    "/",
+    "/index.html",
+    "/index.htm",
+    "/login.html",
+    "/main.html",
+    "/home.html",
+    "/web/index.html",
+)
 
-def fetch_text(url: str, timeout: float = 8.0) -> str:
+
+def fetch_text(url: str, timeout: float = 8.0) -> dict[str, Any]:
     req = urllib.request.Request(
         url,
         headers={
-            "User-Agent": "FlyX-Control-UI-Inspector/0.1",
-            "Accept": "text/html,application/javascript,text/javascript,*/*",
+            "User-Agent": "FlyX-Control-UI-Inspector/0.2",
+            "Accept": "text/html,application/javascript,text/javascript,text/css,*/*",
         },
     )
     with urllib.request.urlopen(req, timeout=timeout) as response:
         raw = response.read()
-    return raw.decode("utf-8", errors="replace")
+        return {
+            "url": response.geturl(),
+            "content_type": response.headers.get_content_type(),
+            "status": getattr(response, "status", 200),
+            "raw": raw,
+            "text": raw.decode("utf-8", errors="replace"),
+        }
 
 
 def compact_snippet(text: str, start: int, end: int, radius: int = 260) -> str:
     lo = max(0, start - radius)
     hi = min(len(text), end + radius)
-    snippet = text[lo:hi]
-    snippet = html.unescape(snippet)
+    snippet = html.unescape(text[lo:hi])
     snippet = re.sub(r"\s+", " ", snippet)
-    return snippet.strip()
+    return sanitize_text(snippet.strip())
+
+
+def sanitize_text(text: str) -> str:
+    text = re.sub(
+        r"(?i)\b(?:imei|imsi|iccid|serial|device[_-]?sn|module[_-]?sn)\b\s*[:=]\s*['\"]?[^,'\"}\s<]+",
+        "[redacted-identifier]",
+        text,
+    )
+    text = re.sub(
+        r"\b[0-9A-Fa-f]{2}(?::[0-9A-Fa-f]{2}){5}\b",
+        "[redacted-mac]",
+        text,
+    )
+    text = re.sub(
+        r"\b(?:\d{1,3}\.){3}\d{1,3}\b",
+        "[redacted-ip]",
+        text,
+    )
+    return text
 
 
 def inspect_asset(text: str) -> list[dict[str, Any]]:
@@ -85,14 +134,49 @@ def inspect_asset(text: str) -> list[dict[str, Any]]:
                 continue
             seen.add(signature)
             hits.append({"pattern": pattern, "snippet": snippet})
-            if len(hits) >= 80:
+            if len(hits) >= 100:
                 return hits
     return hits
 
 
+def same_origin(base_host: str, url: str) -> bool:
+    parsed = urllib.parse.urlparse(url)
+    return parsed.scheme in ("", "http", "https") and (
+        not parsed.netloc or parsed.hostname == base_host
+    )
+
+
+def discover_refs(base_url: str, text: str) -> list[str]:
+    refs: list[str] = []
+
+    def add(value: str) -> None:
+        value = html.unescape(value.strip())
+        if not value or value.startswith(("data:", "javascript:", "mailto:", "tel:")):
+            return
+        url = urllib.parse.urljoin(base_url, value)
+        if url not in refs:
+            refs.append(url)
+
+    for value in ATTR_RE.findall(text):
+        add(value)
+    for value in IFRAME_RE.findall(text):
+        add(value)
+    for value in META_REFRESH_RE.findall(text):
+        add(value)
+    for value in QUOTED_ASSET_RE.findall(text):
+        add(value)
+
+    return refs
+
+
+def preview(text: str, limit: int = 1600) -> str:
+    cleaned = re.sub(r"\s+", " ", html.unescape(text)).strip()
+    return sanitize_text(cleaned[:limit])
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Read-only X17U stock web UI JavaScript inspector"
+        description="Read-only X17U stock web UI inspector"
     )
     parser.add_argument("--host", default="192.168.0.1")
     parser.add_argument("--json", action="store_true")
@@ -106,61 +190,110 @@ def main() -> int:
     )
     base = f"http://{host}/"
 
-    try:
-        index = fetch_text(base)
-    except Exception as exc:
-        print(f"Could not read {base}: {exc}", file=sys.stderr)
-        return 2
+    queue: deque[str] = deque()
+    for path in ENTRY_PATHS:
+        queue.append(urllib.parse.urljoin(base, path))
 
-    script_urls = []
-    for src in SCRIPT_RE.findall(index):
-        url = urllib.parse.urljoin(base, src)
-        if url not in script_urls:
-            script_urls.append(url)
-
+    seen_urls: set[str] = set()
+    discovered_refs: set[str] = set()
+    entry_documents: list[dict[str, Any]] = []
     assets: list[dict[str, Any]] = []
-    index_hits = inspect_asset(index)
-    if index_hits:
-        assets.append(
-            {
-                "asset": "/",
-                "bytes": len(index.encode("utf-8")),
-                "hits": index_hits,
-            }
-        )
-
     errors: dict[str, str] = {}
+
     total_downloaded = 0
     max_total = 30 * 1024 * 1024
+    max_urls = 120
 
-    for url in script_urls:
-        if total_downloaded >= max_total:
-            errors[url] = "skipped after 30 MiB inspection limit"
+    while queue and len(seen_urls) < max_urls and total_downloaded < max_total:
+        url = queue.popleft()
+        url = url.split("#", 1)[0]
+        if url in seen_urls or not same_origin(host, url):
             continue
+        seen_urls.add(url)
+
         try:
-            text = fetch_text(url)
-            size = len(text.encode("utf-8"))
-            total_downloaded += size
-            hits = inspect_asset(text)
-            if hits:
-                assets.append(
-                    {
-                        "asset": urllib.parse.urlparse(url).path,
-                        "bytes": size,
-                        "hits": hits,
-                    }
-                )
+            result = fetch_text(url)
         except Exception as exc:
             errors[url] = str(exc)
+            continue
+
+        raw = result["raw"]
+        text = result["text"]
+        size = len(raw)
+        total_downloaded += size
+        content_type = result["content_type"]
+        final_url = result["url"]
+
+        is_html = (
+            "html" in content_type
+            or "<html" in text[:1000].lower()
+            or "<!doctype" in text[:1000].lower()
+        )
+        is_scriptish = (
+            "javascript" in content_type
+            or final_url.lower().split("?", 1)[0].endswith((".js", ".mjs", ".cjs"))
+        )
+
+        hits = inspect_asset(text)
+        if hits:
+            assets.append(
+                {
+                    "asset": urllib.parse.urlparse(final_url).path or "/",
+                    "content_type": content_type,
+                    "bytes": size,
+                    "hits": hits,
+                }
+            )
+
+        if is_html:
+            entry_documents.append(
+                {
+                    "requested": urllib.parse.urlparse(url).path or "/",
+                    "final_url": final_url,
+                    "status": result["status"],
+                    "content_type": content_type,
+                    "bytes": size,
+                    "preview": preview(text),
+                }
+            )
+
+        if is_html or is_scriptish:
+            for ref in discover_refs(final_url, text):
+                if not same_origin(host, ref):
+                    continue
+                clean = ref.split("#", 1)[0]
+                discovered_refs.add(clean)
+
+                path = urllib.parse.urlparse(clean).path.lower()
+                if (
+                    path.endswith((".js", ".mjs", ".cjs", ".html", ".htm"))
+                    or "javascript" in clean.lower()
+                    or path.endswith("/")
+                ):
+                    if clean not in seen_urls:
+                        queue.append(clean)
+
+    script_refs = sorted(
+        ref
+        for ref in discovered_refs
+        if urllib.parse.urlparse(ref).path.lower().endswith((".js", ".mjs", ".cjs"))
+    )
 
     report = {
         "host": host,
         "read_only": True,
         "login_attempted": False,
         "router_commands_sent": False,
-        "script_assets_found": len(script_urls),
+        "version": "0.2",
+        "urls_fetched": len(seen_urls),
+        "script_assets_found": len(script_refs),
+        "all_references_found": len(discovered_refs),
         "assets_with_relevant_hits": len(assets),
         "downloaded_bytes": total_downloaded,
+        "entry_documents": entry_documents,
+        "script_refs": [
+            urllib.parse.urlparse(ref).path for ref in script_refs[:100]
+        ],
         "errors": errors,
         "assets": assets,
     }
@@ -169,9 +302,17 @@ def main() -> int:
         print(json.dumps(report, indent=2, ensure_ascii=False))
     else:
         print("X17U stock UI inspection")
-        print("=" * 48)
-        print(f"Scripts found: {len(script_urls)}")
-        print(f"Relevant assets: {len(assets)}")
+        print("=" * 52)
+        print(f"URLs fetched:       {len(seen_urls)}")
+        print(f"References found:   {len(discovered_refs)}")
+        print(f"JS assets found:    {len(script_refs)}")
+        print(f"Relevant assets:    {len(assets)}")
+        for doc in entry_documents[:8]:
+            print(
+                f"\n{doc['requested']} -> {doc['final_url']} "
+                f"({doc['content_type']}, {doc['bytes']} bytes)"
+            )
+            print(f"  {doc['preview'][:500]}")
         for asset in assets:
             print(f"\n{asset['asset']}")
             for hit in asset["hits"][:12]:
