@@ -171,3 +171,18 @@ Therefore Parent Control scheduling is not readable while the feature is in its 
 The stock Parent Control manager itself calls cmd 391 POST with enable="1" when that manager mounts, before it starts reading devices/rules. This strongly suggests the MTN firmware may only expose cmd 385 rule data after Parent Control has first been enabled. That is now the boundary between read-only discovery and a configuration-changing test.
 
 No automatic discovery script should cross that boundary. A future test of cmd 391 must require explicit user consent, preserve any returned/current rules, and use the stock UI behavior as the reference.
+
+
+## Sixth authenticated discovery
+
+After opening the stock Parent Control page in the MTN web UI, the same read-only probes were repeated.
+
+Result:
+
+- cmd 397 GET still returned only success/cmd/message;
+- cmd 385 GET with getfun=true still returned only success/cmd/message;
+- no datas array became readable.
+
+So merely opening the stock Parent Control page is not enough to expose the rule list on this firmware/account. Either cmd 391 is being refused/ignored, or the firmware only materializes Parent Control state after at least one device rule has been created.
+
+Do not infer successful enablement from the frontend code alone. The next useful test should be performed through the stock UI on a non-critical test device, then followed by read-only discovery to see whether cmd 385 begins returning the rule array.
