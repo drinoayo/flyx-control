@@ -47,6 +47,16 @@ PATTERNS = [
     r"cmd\s*[:=]\s*337\b",
     r"cmd\s*[:=]\s*401\b",
     r"cmd\s*[:=]\s*402\b",
+    r"setMACData",
+    r"setMACMode",
+    r"getMACData",
+    r"getWirelessFilter",
+    r"setWirelessFilter",
+    r"acceptAll",
+    r"enableRule",
+    r"ippro",
+    r"downlinkSpeedLimit",
+    r"uplinkSpeedLimit",
 ]
 
 ATTR_RE = re.compile(
@@ -64,6 +74,28 @@ META_REFRESH_RE = re.compile(
 IFRAME_RE = re.compile(
     r"""<iframe\b[^>]*src\s*=\s*["']([^"']+)["']""",
     re.IGNORECASE,
+)
+
+ROUTE_CHUNK_RE = re.compile(
+    r"""path\s*:\s*["']([^"']+)["'](?:(?!\}\s*,\s*\{).){0,900}?
+        name\s*:\s*["']([^"']+)["'](?:(?!\}\s*,\s*\{).){0,900}?
+        n\.e\(["']([^"']+)["']\)""",
+    re.IGNORECASE | re.DOTALL | re.VERBOSE,
+)
+CHUNK_CALL_RE = re.compile(
+    r"""n\.e\(["'](chunk-[A-Za-z0-9_-]+)["']\)"""
+)
+CHUNK_HASH_RE = re.compile(
+    r"""["'](chunk-[A-Za-z0-9_-]+)["']\s*:\s*["']([0-9a-fA-F]{6,32})["']"""
+)
+TARGET_ROUTE_WORDS = (
+    "mac",
+    "filter",
+    "accesscontrol",
+    "speed",
+    "client",
+    "device",
+    "firewall",
 )
 
 ENTRY_PATHS = (
@@ -233,6 +265,7 @@ def main() -> int:
     total_downloaded = 0
     max_total = 30 * 1024 * 1024
     max_urls = 120
+    app_js_text = ""
 
     while queue and len(seen_urls) < max_urls and total_downloaded < max_total:
         url = queue.popleft()
@@ -263,6 +296,9 @@ def main() -> int:
             "javascript" in content_type
             or final_url.lower().split("?", 1)[0].endswith((".js", ".mjs", ".cjs"))
         )
+
+        if urllib.parse.urlparse(final_url).path == "/js/app.js":
+            app_js_text = text
 
         hits = inspect_asset(text)
         if hits:
@@ -311,12 +347,116 @@ def main() -> int:
         if urllib.parse.urlparse(ref).path.lower().endswith((".js", ".mjs", ".cjs"))
     )
 
+    # Vue/Webpack lazy-loaded route chunks are not always present as literal
+    # script URLs in index.html. Resolve the route chunk name + hash map from
+    # app.js and fetch only the high-value network-control chunks.
+    route_chunks: list[dict[str, str]] = []
+    chunk_hashes: dict[str, str] = {}
+    lazy_chunk_attempts: list[dict[str, Any]] = []
+
+    if app_js_text:
+        for match in ROUTE_CHUNK_RE.finditer(app_js_text):
+            path, name, chunk = match.groups()
+            route_chunks.append(
+                {"path": path, "name": name, "chunk": chunk}
+            )
+
+        chunk_hashes = {
+            chunk: digest
+            for chunk, digest in CHUNK_HASH_RE.findall(app_js_text)
+        }
+
+        target_chunks: set[str] = set()
+        for route in route_chunks:
+            searchable = (route["path"] + " " + route["name"]).lower()
+            compact = re.sub(r"[^a-z0-9]", "", searchable)
+            if any(word in compact for word in TARGET_ROUTE_WORDS):
+                target_chunks.add(route["chunk"])
+
+        # If route parsing misses a minified edge case, still include chunks
+        # mentioned near known control keywords.
+        for keyword in (
+            "macFilter",
+            "accessControl",
+            "speedLimit",
+            "Attached Devices",
+            "Filtering Rules",
+        ):
+            start = 0
+            while True:
+                pos = app_js_text.find(keyword, start)
+                if pos < 0:
+                    break
+                window = app_js_text[max(0, pos - 1200):pos + 1200]
+                target_chunks.update(CHUNK_CALL_RE.findall(window))
+                start = pos + len(keyword)
+
+        for chunk in sorted(target_chunks):
+            candidates: list[str] = []
+            digest = chunk_hashes.get(chunk)
+            if digest:
+                candidates.append(
+                    urllib.parse.urljoin(base, f"js/{chunk}.{digest}.js")
+                )
+            candidates.append(
+                urllib.parse.urljoin(base, f"js/{chunk}.js")
+            )
+
+            fetched = False
+            last_error = ""
+            for candidate in candidates:
+                if candidate in seen_urls:
+                    continue
+                try:
+                    result = fetch_text(candidate)
+                    fetched = True
+                    seen_urls.add(candidate)
+                    raw = result["raw"]
+                    text = result["text"]
+                    total_downloaded += len(raw)
+                    hits = inspect_asset(text)
+
+                    if hits:
+                        assets.append(
+                            {
+                                "asset": urllib.parse.urlparse(
+                                    result["url"]
+                                ).path,
+                                "content_type": result["content_type"],
+                                "bytes": len(raw),
+                                "hits": hits,
+                            }
+                        )
+
+                    lazy_chunk_attempts.append(
+                        {
+                            "chunk": chunk,
+                            "url": candidate,
+                            "fetched": True,
+                            "bytes": len(raw),
+                            "hits": len(hits),
+                        }
+                    )
+                    break
+                except Exception as exc:
+                    last_error = str(exc)
+
+            if not fetched:
+                lazy_chunk_attempts.append(
+                    {
+                        "chunk": chunk,
+                        "fetched": False,
+                        "hash_found": digest is not None,
+                        "error": last_error or "no candidate URL succeeded",
+                    }
+                )
+
     report = {
         "host": host,
         "read_only": True,
         "login_attempted": False,
         "router_commands_sent": False,
-        "version": "0.3",
+        "version": "0.4",
         "urls_fetched": len(seen_urls),
         "script_assets_found": len(script_refs),
         "all_references_found": len(discovered_refs),
@@ -326,6 +466,9 @@ def main() -> int:
         "script_refs": [
             urllib.parse.urlparse(ref).path for ref in script_refs[:100]
         ],
+        "route_chunks": route_chunks,
+        "chunk_hashes_found": len(chunk_hashes),
+        "lazy_chunk_attempts": lazy_chunk_attempts,
         "errors": errors,
         "assets": assets,
     }
@@ -339,6 +482,8 @@ def main() -> int:
         print(f"References found:   {len(discovered_refs)}")
         print(f"JS assets found:    {len(script_refs)}")
         print(f"Relevant assets:    {len(assets)}")
+        print(f"Route chunks:       {len(route_chunks)}")
+        print(f"Lazy chunks tried:  {len(lazy_chunk_attempts)}")
         for doc in entry_documents[:8]:
             print(
                 f"\n{doc['requested']} -> {doc['final_url']} "
