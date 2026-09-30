@@ -116,3 +116,17 @@ This is a better candidate for Block/Unblock than the generic firewall MAC-filte
 The next authenticated read-only probe therefore requests command 278 separately with subcmd "0" and "1". If both responses expose datas, FlyX Control can preserve each band's existing close/deny/allow mode and MAC list instead of inventing filter state.
 
 The firewall Filtering Rules chunk also confirms generic MAC-rule writes use datas arrays with enableRule, enableLink, ippro and mac fields, while the default mode payload uses acceptAll for IPV4 and IPV6. That remains a fallback path rather than the preferred device-blocking implementation.
+
+
+## Fourth authenticated discovery
+
+The band-specific wireless-filter reads were tested using the stock UI's exact subcmd mapping:
+
+- command 278 + subcmd "0" for 5 GHz;
+- command 278 + subcmd "1" for 2.4 GHz.
+
+Both requests authenticated successfully, but this MTN firmware still returned only success/cmd/message with no datas object. The generic command 278 read behaved the same way.
+
+Therefore the Wi-Fi blacklist/whitelist UI code exists in the frontend bundle, but its readable state is not exposed by this firmware/account in the tested configuration. FlyX Control must keep Block/Unblock disabled rather than assuming an empty list or default deny mode.
+
+The next promising route is the stock Parent Control module, because it may expose device-specific access scheduling or pause controls without relying on the hidden generic MAC-filter state.
