@@ -1,24 +1,69 @@
 # Live MTN FlyX / ZLT X17U mapping notes
 
-The app deliberately separates **proven read calls** from **firmware-specific writes**.
+## Confirmed API family
 
-Implemented now:
+The X17U should be treated as a Tozed device, not as a ZTE `reqproc` router.
 
-- `GET /reqproc/proc_get` batching.
-- Login using `get_random_login` + SHA-256 + Base64.
-- CSRF token retrieval.
-- Session-cookie capture where the firmware returns a `random` cookie.
-- Safe status reads for network type, RSSI, RSRQ, PCI, PPP state and common authenticated LTE fields.
-- `station_list` parsing for connected devices when the firmware exposes it.
-- Read-only inspection of `/js/service.js`, `/js/config/ufi/config.js`, and `/js/util.js` to discover action names from the router itself.
+Its web UI communicates through:
 
-Write controls are capability-gated. The live adapter only calls an action if that action name was observed in the router's own JavaScript. This is important because field names and goform IDs can vary by carrier firmware even within the same ZLT/ZTE family.
+```text
+POST /cgi-bin/http.cgi
+Content-Type: application/json;charset=UTF-8
+```
 
-The first real-device test should therefore be:
+A read request is shaped like:
 
-1. Connect the phone/PC to FlyX Wi-Fi.
-2. Run `python tool/discover_x17u.py --json > flyx-report.json` or use the in-app Connect screen.
-3. Review the sanitized action list.
-4. Map MTN's exact blocking/parental-control and per-client traffic calls before enabling quotas as unattended enforcement.
+```json
+{"cmd": 133, "method": "GET", "sessionId": ""}
+```
 
-Do not publish reports containing IMEI, IMSI, serial number, Wi-Fi passwords, phone numbers or other device-specific identifiers.
+The first repository build incorrectly assumed `/reqproc/proc_get`. A real MTN X17U returned HTTP 404 for that path, which led to this correction.
+
+## Safe unauthenticated reads
+
+The read-only discovery utility currently checks:
+
+- command 113: liveness/basic status;
+- command 133: WAN state, uptime, cumulative WAN byte counters and core RF metrics;
+- command 205: richer RF/operator/monthly-flow information.
+
+These calls do not log in and do not change settings.
+
+## Authentication
+
+The live Flutter client supports the X17U challenge flow:
+
+1. read command 232 for the challenge token;
+2. calculate SHA-256 of `token + password`;
+3. submit command 100 with the username, digest and a client-generated session identifier;
+4. retain the session identifier returned by the router;
+5. read command 233 before each write to obtain a fresh write token.
+
+The app avoids retry loops around login so an incorrect password cannot be hammered repeatedly.
+
+## Connected devices and blocking
+
+After login, the adapter can safely read:
+
+- command 223 for `dhcp_list_info`;
+- command 23 for filter rules;
+- commands 28 and 30 as capability checks for filter modes.
+
+A blocked device can disappear from the active DHCP/association list, so FlyX Control also constructs the Blocked view from filter rules. That lets a blocked client remain visible even while offline.
+
+The current block implementation preserves existing rules, switches the router to deny-list semantics, writes IPv4 and IPv6 deny rules for the selected MAC, then applies the change. It is still capability-gated and should be tested on the user's exact firmware before being treated as production-stable.
+
+## Usage and live speed
+
+Command 133 exposes cumulative WAN RX/TX byte counters and router uptime on known X17U firmware. FlyX Control differences consecutive counter samples to calculate live throughput and re-baselines after a reboot or counter rewind.
+
+Per-device daily/weekly/monthly usage still requires either:
+
+- per-device cumulative counters exposed by another X17U command; or
+- another reliable router-side accounting source.
+
+The app's SQLite layer is already prepared to retain history once those counters are identified.
+
+## Safety rule
+
+Never guess a write command. Read and verify first, preserve existing configuration, and keep high-impact controls disabled until the required fields and command semantics are confirmed against the real MTN firmware.
