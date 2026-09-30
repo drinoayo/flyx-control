@@ -130,3 +130,29 @@ Both requests authenticated successfully, but this MTN firmware still returned o
 Therefore the Wi-Fi blacklist/whitelist UI code exists in the frontend bundle, but its readable state is not exposed by this firmware/account in the tested configuration. FlyX Control must keep Block/Unblock disabled rather than assuming an empty list or default deny mode.
 
 The next promising route is the stock Parent Control module, because it may expose device-specific access scheduling or pause controls without relying on the hidden generic MAC-filter state.
+
+
+## Parent Control frontend contract
+
+The stock /menu/parentControl chunk exposes a separate, device-oriented control path that is more promising than the hidden Wi-Fi MAC-filter state.
+
+Confirmed frontend API wrappers:
+
+- cmd 397 GET/POST: parent-control summary/state;
+- cmd 385 GET with getfun=true: per-device parental-control rule list;
+- cmd 385 POST: save the full parental-control rule list;
+- cmd 391 POST with enable="1": enable parental-control mode.
+
+The Kids Management UI builds rules with:
+
+- enableRule
+- ip
+- startTime
+- endTime
+- scheduleDays
+
+scheduleDays is stored as a comma-separated set of weekday numbers (Monday=1 through Saturday=6, Sunday=0). The UI displays rule value "1" as Forbidden and other values as Available.
+
+The UI saves the entire rule array through cmd 385, then applies the filter. Because cmd 391 is a write that enables the feature, discovery must not call it automatically.
+
+The authenticated read-only discovery utility now probes only cmd 397 GET and cmd 385 GET/getfun=true. If cmd 385 returns datas on the tested MTN firmware, FlyX Control can consider scheduling/pause controls after preserving existing rules and verifying exact enforcement semantics.
