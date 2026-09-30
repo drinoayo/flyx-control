@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 enum DeviceKind { phone, laptop, tv, tablet, desktop, console, unknown }
 enum LimitPeriod { daily, weekly, monthly }
-
 enum ConnectionGrade { excellent, good, fair, poor }
 
 class DevicePolicy {
@@ -57,6 +56,11 @@ class FlyxDevice {
     required this.totalOnlineToday,
     required this.lastSeen,
     required this.signalPercent,
+    this.wifiBand = '',
+    this.wifiRssiDbm,
+    this.wifiTxLinkMbps,
+    this.wifiRxLinkMbps,
+    this.dhcpLeaseExpires,
     this.policy = const DevicePolicy(),
   });
 
@@ -68,8 +72,13 @@ class FlyxDevice {
   final DeviceKind kind;
   final bool online;
   final bool blocked;
+
+  /// Actual observed per-device traffic. Keep at zero unless the router exposes
+  /// byte counters/throughput for this client; Wi-Fi link rates must not be
+  /// presented as internet throughput.
   final double rxBytesPerSecond;
   final double txBytesPerSecond;
+
   final int todayBytes;
   final int weekBytes;
   final int monthBytes;
@@ -77,6 +86,16 @@ class FlyxDevice {
   final Duration totalOnlineToday;
   final DateTime lastSeen;
   final int signalPercent;
+
+  /// Association/link information from X17U Wi-Fi commands 224/225.
+  final String wifiBand;
+  final int? wifiRssiDbm;
+  final double? wifiTxLinkMbps;
+  final double? wifiRxLinkMbps;
+
+  /// DHCP lease expiry if exposed. This is not device uptime.
+  final DateTime? dhcpLeaseExpires;
+
   final DevicePolicy policy;
 
   double get totalRate => rxBytesPerSecond + txBytesPerSecond;
@@ -94,6 +113,11 @@ class FlyxDevice {
     Duration? totalOnlineToday,
     DateTime? lastSeen,
     int? signalPercent,
+    String? wifiBand,
+    int? wifiRssiDbm,
+    double? wifiTxLinkMbps,
+    double? wifiRxLinkMbps,
+    DateTime? dhcpLeaseExpires,
     DevicePolicy? policy,
   }) {
     return FlyxDevice(
@@ -114,6 +138,11 @@ class FlyxDevice {
       totalOnlineToday: totalOnlineToday ?? this.totalOnlineToday,
       lastSeen: lastSeen ?? this.lastSeen,
       signalPercent: signalPercent ?? this.signalPercent,
+      wifiBand: wifiBand ?? this.wifiBand,
+      wifiRssiDbm: wifiRssiDbm ?? this.wifiRssiDbm,
+      wifiTxLinkMbps: wifiTxLinkMbps ?? this.wifiTxLinkMbps,
+      wifiRxLinkMbps: wifiRxLinkMbps ?? this.wifiRxLinkMbps,
+      dhcpLeaseExpires: dhcpLeaseExpires ?? this.dhcpLeaseExpires,
       policy: policy ?? this.policy,
     );
   }
