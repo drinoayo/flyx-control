@@ -105,6 +105,8 @@ def sanitize(value: Any, key: str = "") -> Any:
             "devicesn",
             "modulesn",
             "msisdn",
+            "cmei",
+            "eid",
             "password",
             "passwd",
             "wpa",
