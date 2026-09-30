@@ -1,4 +1,5 @@
 import '../models/models.dart';
+import '../services/usage_store.dart';
 import '../services/zlt_client.dart';
 import 'router_repository.dart';
 
@@ -11,11 +12,13 @@ class ZltRouterRepository implements RouterRepository {
     required this.client,
     required this.username,
     required this.password,
-  });
+    UsageStore? usageStore,
+  }) : usageStore = usageStore ?? UsageStore();
 
   final ZltClient client;
   final String username;
   final String password;
+  final UsageStore usageStore;
 
   bool _loggedIn = false;
   Future<void>? _loginFuture;
@@ -23,6 +26,10 @@ class ZltRouterRepository implements RouterRepository {
 
   int _networkPoll = 0;
   Map<String, dynamic> _rfCache = const {};
+  Map<String, dynamic> _trafficCache = const {};
+  Map<String, dynamic> _systemCache = const {};
+  DateTime? _lastUsagePersistAt;
+  int _todayBytesCache = 0;
 
   double? _lastRx;
   double? _lastTx;
@@ -59,25 +66,66 @@ class ZltRouterRepository implements RouterRepository {
 
   @override
   Future<NetworkSnapshot> fetchNetwork() async {
+    await _ensureLogin();
+
     final wan = await client.command(133);
+    final flow = await _safeCommand(18);
 
     _networkPoll++;
     if (_networkPoll == 1 || _networkPoll % 6 == 1) {
       try {
         _rfCache = await client.command(205);
       } catch (_) {
-        // The WAN read is enough to keep the dashboard useful.
+        // Core radio fields are still available from cmd 133.
       }
     }
 
-    final uptime = _number(wan['uptime']);
+    if (_networkPoll == 1 || _networkPoll % 10 == 1) {
+      final slow = await Future.wait<Map<String, dynamic>>([
+        _safeCommand(337),
+        _safeCommand(207),
+      ]);
+      if (slow[0].isNotEmpty) _trafficCache = slow[0];
+      if (slow[1].isNotEmpty) _systemCache = slow[1];
+    }
+
+    final rx = _nullableNumber(flow['rxBytes']) ??
+        _nullableNumber(wan['wan_rx_bytes']);
+    final tx = _nullableNumber(flow['txBytes']) ??
+        _nullableNumber(wan['wan_tx_bytes']);
+    final uptime = _nullableNumber(flow['uptime']) ??
+        _nullableNumber(wan['uptime']) ??
+        0;
+
     _updateRates(
-      rx: _nullableNumber(wan['wan_rx_bytes']),
-      tx: _nullableNumber(wan['wan_tx_bytes']),
+      rx: rx,
+      tx: tx,
       uptime: uptime,
     );
 
-    final monthMib = _number(_rfCache['mon_total_flow']);
+    final now = DateTime.now();
+    final shouldPersist = _lastUsagePersistAt == null ||
+        now.difference(_lastUsagePersistAt!) >= const Duration(seconds: 10);
+
+    if (rx != null && tx != null && uptime >= 0 && shouldPersist) {
+      await usageStore.recordWanSample(
+        timestamp: now,
+        totalBytes: (rx + tx).round(),
+        uptimeSeconds: uptime.round(),
+      );
+      _lastUsagePersistAt = now;
+      _todayBytesCache = await usageStore.todayBytes();
+    }
+
+    final monthTotalMib =
+        _nullableNumber(_trafficCache['mon_download_flow']) ??
+            _nullableNumber(_rfCache['mon_total_flow']) ??
+            0;
+    final monthDownMib =
+        _nullableNumber(_trafficCache['dl_mon_flow']) ?? 0;
+    final monthUpMib =
+        _nullableNumber(_trafficCache['ul_mon_flow']) ?? 0;
+
     final rsrp5g = _int(wan['RSRP_5G'], 0);
     final rsrp4g = _int(wan['RSRP'], -120);
     final rsrq5g = _int(wan['RSRQ_5G'], 0);
@@ -112,11 +160,19 @@ class ZltRouterRepository implements RouterRepository {
       uploadBytesPerSecond: _txRate,
       routerUptime: Duration(seconds: uptime.round()),
       internetUptimePercent: 0,
-      todayBytes: 0,
-      monthBytes: (monthMib * 1024 * 1024).round(),
+      todayBytes: _todayBytesCache,
+      monthBytes: (monthTotalMib * 1024 * 1024).round(),
+      monthDownloadBytes: (monthDownMib * 1024 * 1024).round(),
+      monthUploadBytes: (monthUpMib * 1024 * 1024).round(),
       outagesToday: 0,
       latencyMs: 0,
       packetLossPercent: 0,
+      routerCpuPercent: _nullableNumber(_systemCache['cpu_usage']),
+      routerTemperatureC:
+          _nullableNumber(_systemCache['device_temperature']),
+      routerMemoryFreeBytes:
+          _kilobytesToBytes(_systemCache['memoryFree']),
+      firmwareVersion: _text(_systemCache['real_fwversion']),
     );
   }
 
@@ -223,8 +279,8 @@ class ZltRouterRepository implements RouterRepository {
 
         final rssi = _nullableInt(wifi['rssi']);
         final signalPercent = rssi == null ? 0 : _wifiSignalPercent(rssi);
-        final txLink = _nullableNumber(wifi['txrate']);
-        final rxLink = _nullableNumber(wifi['rxrate']);
+        final txLink = _positiveNumber(wifi['txrate']);
+        final rxLink = _positiveNumber(wifi['rxrate']);
         final expires = _dateFromEpoch(map['expires']);
 
         devices.add(
@@ -429,7 +485,7 @@ class ZltRouterRepository implements RouterRepository {
   }
 
   @override
-  Future<List<UsagePoint>> fetchWeeklyUsage() async => const [];
+  Future<List<UsagePoint>> fetchWeeklyUsage() => usageStore.lastSevenDays();
 
   @override
   Future<void> reboot() async {
@@ -481,6 +537,18 @@ class ZltRouterRepository implements RouterRepository {
     final cleaned = '$value'.replaceAll(RegExp(r'[^0-9.\-]'), '');
     if (cleaned.isEmpty) return null;
     return double.tryParse(cleaned);
+  }
+
+  double? _positiveNumber(dynamic value) {
+    final number = _nullableNumber(value);
+    if (number == null || number <= 0) return null;
+    return number;
+  }
+
+  int? _kilobytesToBytes(dynamic value) {
+    final kb = _nullableNumber(value);
+    if (kb == null || kb < 0) return null;
+    return (kb * 1024).round();
   }
 
   int _int(dynamic value, [int fallback = 0]) {
