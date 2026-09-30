@@ -96,3 +96,23 @@ On the tested MTN firmware, command 350 timed out as a read, command 355 returne
 ## Safety rule
 
 Never guess a write command. Read and verify first, preserve existing configuration, and keep high-impact controls disabled until the exact command semantics are confirmed against the real MTN firmware.
+
+
+## Stock UI v0.4 findings
+
+The lazy-loaded frontend chunks reveal a second, cleaner device-blocking path through the Wi-Fi blacklist/whitelist UI.
+
+The connected-device route is /connect/info and loads chunk-647cc786. Its Wi-Fi filter component:
+
+- reads command 278 using subcmd equal to the selected Wi-Fi band;
+- expects datas.macfilter and datas.maclist;
+- uses macfilter values close, deny and allow;
+- writes command 278 with payload shaped as datas: { maclist, macfilter }, plus subcmd;
+- maps Wi-Fi type "0" to the 5 GHz client list (cmd 225) and "1" to the 2.4 GHz client list (cmd 224);
+- warns that Wi-Fi blacklist/whitelist filtering is disabled when WPS or MESH is enabled.
+
+This is a better candidate for Block/Unblock than the generic firewall MAC-filter page because it is directly wired to the attached-device screen.
+
+The next authenticated read-only probe therefore requests command 278 separately with subcmd "0" and "1". If both responses expose datas, FlyX Control can preserve each band's existing close/deny/allow mode and MAC list instead of inventing filter state.
+
+The firewall Filtering Rules chunk also confirms generic MAC-rule writes use datas arrays with enableRule, enableLink, ippro and mac fields, while the default mode payload uses acceptAll for IPV4 and IPV6. That remains a fallback path rather than the preferred device-blocking implementation.
