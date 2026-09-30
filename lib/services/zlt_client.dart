@@ -177,6 +177,12 @@ class ZltClient {
       await probe(278, authenticated: true);
       await probe(350, authenticated: true);
       await probe(355, authenticated: true);
+      await probe(397, authenticated: true);
+      await probe(
+        385,
+        authenticated: true,
+        fields: const {'getfun': true},
+      );
     }
 
     final stationRows =
