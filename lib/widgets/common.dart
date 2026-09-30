@@ -291,7 +291,7 @@ class UsageBars extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: points.map((point) {
-          final fraction = point.bytes / maxBytes;
+          final fraction = maxBytes <= 0 ? 0.0 : point.bytes / maxBytes;
           return Expanded(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4),
