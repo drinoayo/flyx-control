@@ -175,6 +175,12 @@ class NetworkSnapshot {
     required this.outagesToday,
     required this.latencyMs,
     required this.packetLossPercent,
+    this.monthDownloadBytes = 0,
+    this.monthUploadBytes = 0,
+    this.routerCpuPercent,
+    this.routerTemperatureC,
+    this.routerMemoryFreeBytes,
+    this.firmwareVersion = '',
   });
 
   final bool connected;
@@ -196,6 +202,12 @@ class NetworkSnapshot {
   final int outagesToday;
   final int latencyMs;
   final double packetLossPercent;
+  final int monthDownloadBytes;
+  final int monthUploadBytes;
+  final double? routerCpuPercent;
+  final double? routerTemperatureC;
+  final int? routerMemoryFreeBytes;
+  final String firmwareVersion;
 
   ConnectionGrade get grade {
     if (rsrp >= -85 && sinr >= 20) return ConnectionGrade.excellent;
@@ -231,6 +243,12 @@ class NetworkSnapshot {
     int? monthBytes,
     int? latencyMs,
     double? packetLossPercent,
+    int? monthDownloadBytes,
+    int? monthUploadBytes,
+    double? routerCpuPercent,
+    double? routerTemperatureC,
+    int? routerMemoryFreeBytes,
+    String? firmwareVersion,
   }) {
     return NetworkSnapshot(
       connected: connected ?? this.connected,
@@ -252,6 +270,14 @@ class NetworkSnapshot {
       outagesToday: outagesToday,
       latencyMs: latencyMs ?? this.latencyMs,
       packetLossPercent: packetLossPercent ?? this.packetLossPercent,
+      monthDownloadBytes: monthDownloadBytes ?? this.monthDownloadBytes,
+      monthUploadBytes: monthUploadBytes ?? this.monthUploadBytes,
+      routerCpuPercent: routerCpuPercent ?? this.routerCpuPercent,
+      routerTemperatureC:
+          routerTemperatureC ?? this.routerTemperatureC,
+      routerMemoryFreeBytes:
+          routerMemoryFreeBytes ?? this.routerMemoryFreeBytes,
+      firmwareVersion: firmwareVersion ?? this.firmwareVersion,
     );
   }
 }
