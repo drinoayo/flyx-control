@@ -77,8 +77,14 @@ class ZltRouterRepository implements RouterRepository {
     final monthMib = _number(_rfCache['mon_total_flow']) ?? 0;
     final rsrp5g = _int(wan['RSRP_5G'], 0);
     final rsrp4g = _int(wan['RSRP'], -120);
+    final rsrq5g = _int(wan['RSRQ_5G'], 0);
+    final rsrq4g = _int(wan['RSRQ'], -20);
     final sinr5g = _int(wan['SINR_5G'], 0);
     final sinr4g = _int(wan['SINR'], 0);
+    final rssi5g = _int(wan['RSSI_5G'], 0);
+    final rssi4g = _int(wan['RSSI'], -120);
+    final pci5g = _int(wan['PCI_5G'], 0);
+    final pci4g = _firstInt(wan['PCI'], 0);
 
     return NetworkSnapshot(
       connected: _text(wan['wan_ip']).isNotEmpty,
@@ -89,10 +95,10 @@ class ZltRouterRepository implements RouterRepository {
           ? 'MTN-NG'
           : _text(_rfCache['network_operator']),
       rsrp: rsrp5g != 0 ? rsrp5g : rsrp4g,
-      rsrq: _int(wan['RSRQ'], -20),
+      rsrq: rsrq5g != 0 ? rsrq5g : rsrq4g,
       sinr: sinr5g != 0 ? sinr5g : sinr4g,
-      rssi: _int(wan['RSSI'], -120),
-      pci: _int(wan['PCI'], 0),
+      rssi: rssi5g != 0 ? rssi5g : rssi4g,
+      pci: pci5g != 0 ? pci5g : pci4g,
       lteBand: _text(wan['currentband']).isEmpty
           ? '—'
           : _text(wan['currentband']),
@@ -381,6 +387,13 @@ class ZltRouterRepository implements RouterRepository {
   int _int(dynamic value, [int fallback = 0]) {
     final number = _number(value, fallback.toDouble());
     return number.round();
+  }
+
+  int _firstInt(dynamic value, [int fallback = 0]) {
+    final text = '${value ?? ''}'.trim();
+    if (text.isEmpty) return fallback;
+    final first = RegExp(r'-?\\d+').firstMatch(text)?.group(0);
+    return int.tryParse(first ?? '') ?? fallback;
   }
 
   String _text(dynamic value) => '${value ?? ''}'.trim();
