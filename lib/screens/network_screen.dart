@@ -169,7 +169,11 @@ class _NetworkScreenState extends State<NetworkScreen> {
                         icon: Icons.waterfall_chart_rounded,
                         title: 'Packet loss',
                         value: n.packetLossPercent == 0 ? 'Collecting' : '${n.packetLossPercent.toStringAsFixed(1)}%',
-                        valueColor: n.packetLossPercent <= .5 ? FlyxColors.success : FlyxColors.warning,
+                        valueColor: n.packetLossPercent == 0
+                            ? FlyxColors.muted
+                            : n.packetLossPercent <= .5
+                                ? FlyxColors.success
+                                : FlyxColors.warning,
                       ),
                       const Divider(height: 24, indent: 46),
                       _HealthRow(
