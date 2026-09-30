@@ -80,7 +80,12 @@ class _ConnectRouterScreenState extends State<ConnectRouterScreen> {
                         children: [
                           Text('ZLT X17U', style: Theme.of(context).textTheme.titleLarge),
                           const SizedBox(height: 3),
-                          Text('Local connection · no cloud account', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: FlyxColors.muted)),
+                          Text(
+                            'Local connection · no cloud account',
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  color: FlyxColors.muted,
+                                ),
+                          ),
                         ],
                       ),
                     ),
@@ -89,7 +94,9 @@ class _ConnectRouterScreenState extends State<ConnectRouterScreen> {
                 const SizedBox(height: 18),
                 Text(
                   'Your router password stays in encrypted device storage. FlyX Control talks directly to the router over your Wi-Fi.',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: FlyxColors.muted),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: FlyxColors.muted,
+                      ),
                 ),
               ],
             ),
@@ -98,12 +105,18 @@ class _ConnectRouterScreenState extends State<ConnectRouterScreen> {
           TextField(
             controller: host,
             keyboardType: TextInputType.url,
-            decoration: const InputDecoration(labelText: 'Router address', prefixIcon: Icon(Icons.language_rounded)),
+            decoration: const InputDecoration(
+              labelText: 'Router address',
+              prefixIcon: Icon(Icons.language_rounded),
+            ),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: username,
-            decoration: const InputDecoration(labelText: 'Username', prefixIcon: Icon(Icons.person_outline_rounded)),
+            decoration: const InputDecoration(
+              labelText: 'Username',
+              prefixIcon: Icon(Icons.person_outline_rounded),
+            ),
           ),
           const SizedBox(height: 12),
           TextField(
@@ -114,7 +127,11 @@ class _ConnectRouterScreenState extends State<ConnectRouterScreen> {
               prefixIcon: const Icon(Icons.key_rounded),
               suffixIcon: IconButton(
                 onPressed: () => setState(() => obscure = !obscure),
-                icon: Icon(obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                icon: Icon(
+                  obscure
+                      ? Icons.visibility_outlined
+                      : Icons.visibility_off_outlined,
+                ),
               ),
             ),
           ),
@@ -122,13 +139,27 @@ class _ConnectRouterScreenState extends State<ConnectRouterScreen> {
           FilledButton.icon(
             onPressed: loading ? null : _connect,
             icon: loading
-                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: FlyxColors.ink))
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: FlyxColors.ink,
+                    ),
+                  )
                 : const Icon(Icons.link_rounded),
             label: Text(loading ? 'Connecting…' : 'Connect securely'),
           ),
           if (status != null) ...[
             const SizedBox(height: 14),
-            Text(status!, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: status!.startsWith('Connected') ? FlyxColors.success : FlyxColors.danger)),
+            Text(
+              status!,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: status!.startsWith('Connected')
+                        ? FlyxColors.success
+                        : FlyxColors.danger,
+                  ),
+            ),
           ],
           const SizedBox(height: 28),
           const SectionTitle(title: 'What happens first'),
@@ -136,11 +167,23 @@ class _ConnectRouterScreenState extends State<ConnectRouterScreen> {
           const SurfaceCard(
             child: Column(
               children: [
-                _Step(index: '01', title: 'Safe read-only scan', text: 'Check signal fields, station list and firmware identity.'),
+                _Step(
+                  index: '01',
+                  title: 'Safe read-only scan',
+                  text: 'Check liveness, WAN status, signal fields and firmware data.',
+                ),
                 Divider(height: 26, indent: 46),
-                _Step(index: '02', title: 'Capability discovery', text: 'Read the router’s own JavaScript to see which controls your MTN firmware actually exposes.'),
+                _Step(
+                  index: '02',
+                  title: 'Capability discovery',
+                  text: 'Confirm the authenticated device list and filter controls using read-only commands.',
+                ),
                 Divider(height: 26, indent: 46),
-                _Step(index: '03', title: 'Enable only proven controls', text: 'No fake buttons. Blocking, Wi-Fi, SMS and network controls appear only after they are mapped.'),
+                _Step(
+                  index: '03',
+                  title: 'Enable only proven controls',
+                  text: 'No fake buttons. Blocking and other controls appear only when the X17U confirms them.',
+                ),
               ],
             ),
           ),
@@ -151,35 +194,49 @@ class _ConnectRouterScreenState extends State<ConnectRouterScreen> {
 
   Future<void> _connect() async {
     if (password.text.isEmpty) {
-      setState(() => status = 'Enter the admin password you use at 192.168.0.1.');
+      setState(
+        () => status = 'Enter the admin password you use at 192.168.0.1.',
+      );
       return;
     }
+
     setState(() {
       loading = true;
       status = 'Running a safe capability check…';
     });
+
     try {
       final config = RouterConnectionConfig(
         host: host.text.trim(),
         username: username.text.trim().isEmpty ? 'admin' : username.text.trim(),
         password: password.text,
       );
+
       final client = ZltClient(host: config.host);
-      await client.login(username: config.username, password: config.password);
+      await client.login(
+        username: config.username,
+        password: config.password,
+      );
       final report = await client.discover();
+
       final repository = ZltRouterRepository(
         client: client,
         username: config.username,
         password: config.password,
       );
+
       await const SecureRouterStore().save(config);
       if (!mounted) return;
+
       await AppScope.of(context).replaceRepository(repository);
       if (!mounted) return;
+
       setState(() {
-        status = 'Connected. ${report.actions.length} router actions discovered.';
+        status =
+            'Connected. ${report.verifiedCommands.length} X17U commands verified.';
         loading = false;
       });
+
       await Future<void>.delayed(const Duration(milliseconds: 500));
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
@@ -193,7 +250,12 @@ class _ConnectRouterScreenState extends State<ConnectRouterScreen> {
 }
 
 class _Step extends StatelessWidget {
-  const _Step({required this.index, required this.title, required this.text});
+  const _Step({
+    required this.index,
+    required this.title,
+    required this.text,
+  });
+
   final String index;
   final String title;
   final String text;
@@ -211,7 +273,12 @@ class _Step extends StatelessWidget {
             color: FlyxColors.yellow.withValues(alpha: .12),
             borderRadius: BorderRadius.circular(11),
           ),
-          child: Text(index, style: Theme.of(context).textTheme.labelMedium?.copyWith(color: FlyxColors.yellow)),
+          child: Text(
+            index,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: FlyxColors.yellow,
+                ),
+          ),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -220,7 +287,12 @@ class _Step extends StatelessWidget {
             children: [
               Text(title, style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 4),
-              Text(text, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: FlyxColors.muted)),
+              Text(
+                text,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: FlyxColors.muted,
+                    ),
+              ),
             ],
           ),
         ),
