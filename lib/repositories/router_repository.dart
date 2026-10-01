@@ -9,8 +9,21 @@ abstract class RouterRepository {
     WifiBand band, {
     String? ssid,
     String? password,
+    bool? enabled,
     bool? broadcast,
+    String? authenticationType,
   });
+  Future<WifiUpdateResult> updateWifiRadio(
+    WifiBand band, {
+    String? channel,
+    String? wifiModeCode,
+    String? bandwidthCode,
+    double? txPowerPercent,
+    int? maxClients,
+    bool? dfsEnabled,
+  });
+  Future<void> setWifiWps(WifiBand band, bool enabled);
+  Future<WifiUpdateResult> setWifiOptimization(bool enabled);
   Future<RouterCapabilities> capabilities();
   Future<void> setBlocked(String deviceId, bool blocked);
   Future<void> setDeviceName(String deviceId, String name);
