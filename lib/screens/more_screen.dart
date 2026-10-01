@@ -92,6 +92,7 @@ class MoreScreen extends StatelessWidget {
               children: [
                 _Capability(label: 'Devices', active: c.stationList),
                 _Capability(label: 'Block', active: c.blocking),
+                _Capability(label: 'Schedules', active: c.scheduling),
                 _Capability(label: 'Traffic', active: c.perDeviceTraffic),
                 _Capability(label: 'SMS', active: c.sms),
                 _Capability(label: 'USSD', active: c.ussd),
