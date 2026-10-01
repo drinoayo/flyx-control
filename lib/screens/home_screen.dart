@@ -140,30 +140,50 @@ class _HomeScreenState extends State<HomeScreen> {
             const SectionTitle(title: 'Reliability'),
             const SizedBox(height: 10),
             SurfaceCard(
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: MetricLabel(
-                      label: 'Router uptime',
-                      value: network == null ? '—' : formatDuration(network.routerUptime),
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: MetricLabel(
+                          label: 'Router uptime',
+                          value: network == null
+                              ? '—'
+                              : formatDuration(network.routerUptime),
+                        ),
+                      ),
+                      Container(width: 1, height: 44, color: FlyxColors.line),
+                      const SizedBox(width: 18),
+                      Expanded(
+                        child: MetricLabel(
+                          label: 'Observed internet uptime',
+                          value: network == null
+                              ? '—'
+                              : network.internetObservationDuration ==
+                                      Duration.zero
+                                  ? 'Collecting'
+                                  : '${network.internetUptimePercent.toStringAsFixed(1)}%',
+                          valueColor: network != null &&
+                                  network.internetObservationDuration !=
+                                      Duration.zero
+                              ? FlyxColors.success
+                              : FlyxColors.muted,
+                        ),
+                      ),
+                    ],
                   ),
-                  Container(width: 1, height: 44, color: FlyxColors.line),
-                  const SizedBox(width: 18),
-                  Expanded(
-                    child: MetricLabel(
-                      label: 'Internet uptime',
-                      value: network == null
-                          ? '—'
-                          : network.internetUptimePercent <= 0
-                              ? 'Collecting'
-                              : '${network.internetUptimePercent.toStringAsFixed(1)}%',
-                      valueColor: network != null &&
-                              network.internetUptimePercent > 0
-                          ? FlyxColors.success
-                          : FlyxColors.muted,
+                  if (network != null) ...[
+                    const SizedBox(height: 14),
+                    Text(
+                      network.internetObservationDuration == Duration.zero
+                          ? 'FlyX Control starts calculating reliability while the app is observing the router.'
+                          : 'Tracked while FlyX Control is running · ${network.outagesToday} outage${network.outagesToday == 1 ? '' : 's'} observed today.',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: FlyxColors.muted,
+                          ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),
