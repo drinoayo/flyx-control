@@ -118,6 +118,13 @@ class ZltRouterRepository implements RouterRepository {
     );
 
     final now = DateTime.now();
+    final connected = _text(wan['wan_ip']).isNotEmpty;
+    await usageStore.recordNetworkState(
+      timestamp: now,
+      connected: connected,
+    );
+    final reliability = await usageStore.reliabilityToday(now);
+
     final shouldPersist = _lastUsagePersistAt == null ||
         now.difference(_lastUsagePersistAt!) >= const Duration(seconds: 10);
 
@@ -152,7 +159,7 @@ class ZltRouterRepository implements RouterRepository {
     final pci4g = _firstInt(wan['PCI'], 0);
 
     return NetworkSnapshot(
-      connected: _text(wan['wan_ip']).isNotEmpty,
+      connected: connected,
       networkType: _text(wan['network_type_str']).isEmpty
           ? 'Unknown'
           : _text(wan['network_type_str']),
@@ -173,12 +180,13 @@ class ZltRouterRepository implements RouterRepository {
       downloadBytesPerSecond: _rxRate,
       uploadBytesPerSecond: _txRate,
       routerUptime: Duration(seconds: uptime.round()),
-      internetUptimePercent: 0,
+      internetUptimePercent: reliability.uptimePercent,
+      internetObservationDuration: reliability.observedDuration,
       todayBytes: _todayBytesCache,
       monthBytes: (monthTotalMib * 1024 * 1024).round(),
       monthDownloadBytes: (monthDownMib * 1024 * 1024).round(),
       monthUploadBytes: (monthUpMib * 1024 * 1024).round(),
-      outagesToday: 0,
+      outagesToday: reliability.outages,
       latencyMs: 0,
       packetLossPercent: 0,
       routerCpuPercent: _nullableNumber(_systemCache['cpu_usage']),
