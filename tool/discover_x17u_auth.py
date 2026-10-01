@@ -175,6 +175,7 @@ def main() -> int:
 
     # All commands below are GET/read probes. No configuration is changed.
     #
+    # 11       router/device time; stock UI maps getDeviceTime() to this GET command
     # 223/402  connected-client sources
     # 224/225  2.4/5 GHz Wi-Fi association detail
     # 18       WAN flow counters on some X17U firmware
@@ -190,6 +191,7 @@ def main() -> int:
     # 397      parental-control summary/state
     # 385      parental-control per-device rules; stock UI sends getfun=true
     probes: tuple[tuple[int, dict[str, Any]], ...] = (
+        (11, {}),
         (223, {}),
         (224, {}),
         (225, {}),
@@ -237,6 +239,7 @@ def main() -> int:
         except Exception as exc:
             errors[label] = str(exc)
 
+    d11 = responses.get("11", {})
     d223 = responses.get("223", {})
     d402 = responses.get("402", {})
     d224 = responses.get("224", {})
@@ -274,6 +277,10 @@ def main() -> int:
         ),
         "errors": errors,
         "capabilities": {
+            "device_time_fields": sorted(
+                key for key in d11.keys()
+                if key not in {"success", "cmd", "message"}
+            ),
             "connected_device_list": isinstance(device_rows, list),
             "connected_device_count": len(device_rows) if isinstance(device_rows, list) else None,
             "wifi_24_client_detail": isinstance(d224.get("wlan24g_wifi_info"), list),
