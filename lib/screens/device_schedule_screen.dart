@@ -42,7 +42,7 @@ class DeviceScheduleScreen extends StatelessWidget {
           ),
           const SizedBox(height: 5),
           Text(
-            'Schedule repeating hours when this device's network access should be blocked.',
+            "Schedule repeating hours when this device's network access should be blocked.",
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: FlyxColors.muted,
                 ),
@@ -272,7 +272,7 @@ class DeviceScheduleScreen extends StatelessWidget {
       builder: (context) => AlertDialog(
         title: Text('Enable schedule for ${device.name}?'),
         content: const Text(
-          'During the selected hours this device's network access can be blocked. Make sure you are not relying on this same device to manage the router during the blocked window.',
+          "During the selected hours this device's network access can be blocked. Make sure you are not relying on this same device to manage the router during the blocked window.",
         ),
         actions: [
           TextButton(
