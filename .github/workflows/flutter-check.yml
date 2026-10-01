@@ -30,14 +30,6 @@ jobs:
       - name: Apply local-router Android networking
         run: python3 tool/apply_android_router_config.py
 
-      - name: Configure stable beta signing
-        env:
-          FLYX_BETA_KEYSTORE_B64: ${{ secrets.FLYX_BETA_KEYSTORE_B64 }}
-          FLYX_BETA_STORE_PASSWORD: ${{ secrets.FLYX_BETA_STORE_PASSWORD }}
-          FLYX_BETA_KEY_ALIAS: ${{ secrets.FLYX_BETA_KEY_ALIAS }}
-          FLYX_BETA_KEY_PASSWORD: ${{ secrets.FLYX_BETA_KEY_PASSWORD }}
-        run: python3 tool/apply_android_beta_signing.py
-
       - name: Remove generated sample test
         run: rm -f test/widget_test.dart
 
@@ -50,25 +42,12 @@ jobs:
       - name: Test
         run: flutter test
 
-      - name: Build Android beta APK
-        env:
-          FLYX_BETA_KEYSTORE_B64: ${{ secrets.FLYX_BETA_KEYSTORE_B64 }}
-          FLYX_BETA_STORE_PASSWORD: ${{ secrets.FLYX_BETA_STORE_PASSWORD }}
-          FLYX_BETA_KEY_ALIAS: ${{ secrets.FLYX_BETA_KEY_ALIAS }}
-          FLYX_BETA_KEY_PASSWORD: ${{ secrets.FLYX_BETA_KEY_PASSWORD }}
-        run: |
-          if [ -n "$FLYX_BETA_KEYSTORE_B64" ]; then
-            flutter build apk --release
-            cp build/app/outputs/flutter-apk/app-release.apk FlyX-Control-beta.apk
-          else
-            echo "Stable beta signing secrets are not configured; building debug APK."
-            flutter build apk --debug
-            cp build/app/outputs/flutter-apk/app-debug.apk FlyX-Control-beta.apk
-          fi
+      - name: Build debug APK
+        run: flutter build apk --debug
 
-      - name: Upload Android beta APK
+      - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: flyx-control-beta-apk
-          path: FlyX-Control-beta.apk
+          name: flyx-control-debug-apk
+          path: build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
