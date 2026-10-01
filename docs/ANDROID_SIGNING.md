@@ -22,4 +22,4 @@ The Flutter workflow:
 4. Builds the debug APK.
 5. Builds an **unsigned release APK** for owner signing.
 
-The unsigned release artifact must not be distributed as the final app.
+The unsigned release artifact must not be distributed as the final app. The final APK must be signed with Android APK Signature Scheme v2 or newer using the permanent owner-held FlyX Control key, and the finished APK must be verified with Android's APK signature verifier before distribution.
