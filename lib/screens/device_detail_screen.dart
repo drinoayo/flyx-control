@@ -31,8 +31,6 @@ class DeviceDetailScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: FlyxColors.ink,
-        surfaceTintColor: Colors.transparent,
         title: Text(device.name),
       ),
       body: ListView(
@@ -611,7 +609,7 @@ class DeviceDetailScreen extends StatelessWidget {
     final result = await showModalBottomSheet<DevicePolicy>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: FlyxColors.surface,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       builder: (context) => StatefulBuilder(
         builder: (context, setModalState) => Padding(
           padding: EdgeInsets.fromLTRB(
@@ -917,7 +915,7 @@ class _QuotaProgress extends StatelessWidget {
           child: LinearProgressIndicator(
             value: fraction,
             minHeight: 9,
-            backgroundColor: FlyxColors.line,
+            backgroundColor: Theme.of(context).colorScheme.outlineVariant,
             valueColor: AlwaysStoppedAnimation(
               fraction >= .9 ? FlyxColors.danger : FlyxColors.yellow,
             ),
