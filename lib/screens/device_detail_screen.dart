@@ -124,6 +124,35 @@ class DeviceDetailScreen extends StatelessWidget {
             ),
           ),
 
+          if (device.recentSessions.isNotEmpty) ...[
+            const SizedBox(height: 24),
+            const SectionTitle(title: 'Recent connections'),
+            const SizedBox(height: 10),
+            SurfaceCard(
+              child: Column(
+                children: [
+                  for (var i = 0; i < device.recentSessions.length; i++) ...[
+                    _SessionHistoryRow(
+                      session: device.recentSessions[i],
+                    ),
+                    if (i + 1 < device.recentSessions.length)
+                      const Divider(height: 22, indent: 42),
+                  ],
+                  const SizedBox(height: 12),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Only periods observed by FlyX Control are shown. Monitoring gaps are not reconstructed.',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: FlyxColors.muted,
+                          ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
           const SizedBox(height: 24),
           const SectionTitle(title: 'Usage'),
           const SizedBox(height: 10),
@@ -197,7 +226,7 @@ class DeviceDetailScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Icon(
-                  schedule?.isActiveAt(DateTime.now()) == true
+                  device.parentControlActive
                       ? Icons.wifi_off_rounded
                       : Icons.schedule_rounded,
                   color: canSchedule ? FlyxColors.yellow : FlyxColors.muted,
@@ -222,7 +251,7 @@ class DeviceDetailScreen extends StatelessWidget {
                         canSchedule
                             ? schedule == null
                                 ? 'Set repeating hours when this device should be disconnected from FlyX.'
-                                : schedule.isActiveAt(DateTime.now())
+                                : device.parentControlActive
                                     ? 'This device is currently inside its blocked window.'
                                     : 'Manage days, hours, and whether this rule is enabled.'
                             : 'FlyX Control only enables schedules when the router exposes a readable Parent Control rule list.',
@@ -615,6 +644,63 @@ class DeviceDetailScreen extends StatelessWidget {
       }
     }
   }
+}
+
+class _SessionHistoryRow extends StatelessWidget {
+  const _SessionHistoryRow({required this.session});
+
+  final DeviceSessionRecord session;
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final duration = session.durationAt(now);
+    final status = session.isCurrent
+        ? 'Current session'
+        : '${_formatObservedDate(session.startedAt)} · ${_formatObservedClock(session.startedAt)}–${_formatObservedClock(session.endedAt!)}';
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          session.isCurrent ? Icons.wifi_rounded : Icons.history_rounded,
+          color: session.isCurrent ? FlyxColors.success : FlyxColors.muted,
+          size: 20,
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(status, style: Theme.of(context).textTheme.titleSmall),
+              const SizedBox(height: 3),
+              Text(
+                'Observed ${formatDuration(duration)}',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: FlyxColors.muted,
+                    ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+String _formatObservedDate(DateTime value) {
+  const months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+  return '${months[value.month - 1]} ${value.day}';
+}
+
+String _formatObservedClock(DateTime value) {
+  final hour = value.hour % 12 == 0 ? 12 : value.hour % 12;
+  final minute = value.minute.toString().padLeft(2, '0');
+  final suffix = value.hour >= 12 ? 'PM' : 'AM';
+  return '$hour:$minute $suffix';
 }
 
 class _Header extends StatelessWidget {
