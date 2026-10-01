@@ -158,7 +158,7 @@ class _UssdScreenState extends State<UssdScreen> {
                     decoration: BoxDecoration(
                       color: entry.outgoing
                           ? FlyxColors.yellow.withValues(alpha: .12)
-                          : FlyxColors.surface,
+                          : Theme.of(context).colorScheme.surface,
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
                         color: FlyxColors.muted.withValues(alpha: .12),
