@@ -15,6 +15,7 @@ class NetworkModeScreen extends StatefulWidget {
 class _NetworkModeScreenState extends State<NetworkModeScreen> {
   Future<RouterNetworkModeSnapshot>? _future;
   bool _showFields = false;
+  bool _busy = false;
 
   @override
   void didChangeDependencies() {
@@ -23,15 +24,93 @@ class _NetworkModeScreenState extends State<NetworkModeScreen> {
   }
 
   void _reload() {
+    if (!mounted) return;
     setState(() {
       _future = AppScope.of(context).fetchNetworkMode();
     });
   }
 
+  Future<bool> _confirm({
+    required String title,
+    required String body,
+    required String action,
+  }) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Text(body),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(action),
+          ),
+        ],
+      ),
+    );
+    return result == true;
+  }
+
+  Future<void> _setFlight(bool enabled) async {
+    if (_busy) return;
+    if (enabled) {
+      final ok = await _confirm(
+        title: 'Turn on Flight Mode?',
+        body:
+            'This disables the mobile-network connection. The FlyX Wi-Fi and local app connection should remain available, but Internet access will stop until Flight Mode is turned off.',
+        action: 'Turn on',
+      );
+      if (!ok || !mounted) return;
+    }
+    await _runChange(() => AppScope.of(context).setFlightMode(enabled));
+  }
+
+  Future<void> _setData(bool enabled) async {
+    if (_busy) return;
+    if (!enabled) {
+      final ok = await _confirm(
+        title: 'Turn mobile data off?',
+        body:
+            'Devices can stay connected to FlyX Wi-Fi, but Internet access through the MTN SIM will stop until mobile data is turned back on.',
+        action: 'Turn off',
+      );
+      if (!ok || !mounted) return;
+    }
+    await _runChange(() => AppScope.of(context).setMobileData(enabled));
+  }
+
+  Future<void> _setRoaming(bool enabled) async {
+    if (_busy) return;
+    await _runChange(() => AppScope.of(context).setDataRoaming(enabled));
+  }
+
+  Future<void> _runChange(Future<void> Function() action) async {
+    setState(() => _busy = true);
+    try {
+      await action();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Mobile-network setting saved and verified.')),
+      );
+      _reload();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.toString())),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Network mode')),
+      appBar: AppBar(title: const Text('Mobile network')),
       body: FutureBuilder<RouterNetworkModeSnapshot>(
         future: _future,
         builder: (context, snapshot) {
@@ -45,7 +124,7 @@ class _NetworkModeScreenState extends State<NetworkModeScreen> {
               children: [
                 const AppTopBar(
                   subtitle: 'MOBILE NETWORK',
-                  title: 'Could not read network mode',
+                  title: 'Could not read network settings',
                 ),
                 const SizedBox(height: 18),
                 SurfaceCard(child: Text(snapshot.error.toString())),
@@ -70,7 +149,7 @@ class _NetworkModeScreenState extends State<NetworkModeScreen> {
               children: [
                 const AppTopBar(
                   subtitle: 'MOBILE NETWORK',
-                  title: 'Network mode',
+                  title: 'Network settings',
                 ),
                 const SizedBox(height: 18),
                 SurfaceCard(
@@ -79,16 +158,24 @@ class _NetworkModeScreenState extends State<NetworkModeScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Router mode code',
+                        'Network mode',
                         style: Theme.of(context)
                             .textTheme
                             .bodyMedium
                             ?.copyWith(color: FlyxColors.muted),
                       ),
                       const SizedBox(height: 8),
-                      SelectableText(
+                      Text(
                         data.displayMode,
                         style: Theme.of(context).textTheme.headlineSmall,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Router code: ${data.networkModeCode}',
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.copyWith(color: FlyxColors.muted),
                       ),
                       if (liveType.isNotEmpty) ...[
                         const SizedBox(height: 8),
@@ -100,36 +187,73 @@ class _NetworkModeScreenState extends State<NetworkModeScreen> {
                               ?.copyWith(color: FlyxColors.muted),
                         ),
                       ],
+                      const SizedBox(height: 12),
+                      Text(
+                        'This MTN X17U firmware exposes Automatic as its supported network-mode option. FlyX Control does not invent 4G-only or 5G-only values that the stock page does not offer.',
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodyMedium
+                            ?.copyWith(color: FlyxColors.muted),
+                      ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 14),
                 SurfaceCard(
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.verified_user_outlined,
-                            color: FlyxColors.yellow,
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              'Read-only verification',
-                              style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                          ),
-                        ],
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        value: data.flightMode,
+                        onChanged: _busy ? null : _setFlight,
+                        title: const Text('Flight Mode'),
+                        subtitle: const Text(
+                          'Disable or restore the cellular connection',
+                        ),
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'The X17U is returning networkMode directly. Your current raw value is shown above. Changing it stays locked until the firmware’s exact value mapping is captured, so FlyX Control does not guess what codes such as E mean.',
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodyMedium
-                            ?.copyWith(color: FlyxColors.muted),
+                      const Divider(height: 20),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        value: data.dataEnabled,
+                        onChanged:
+                            _busy || data.flightMode ? null : _setData,
+                        title: const Text('Mobile data'),
+                        subtitle: const Text(
+                          'Allow Internet access through the MTN SIM',
+                        ),
+                      ),
+                      const Divider(height: 20),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        value: data.roamingEnabled,
+                        onChanged: _busy ||
+                                data.flightMode ||
+                                !data.dataEnabled
+                            ? null
+                            : _setRoaming,
+                        title: const Text('Data roaming'),
+                        subtitle: const Text(
+                          'Allow mobile data while the SIM is roaming',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+                SurfaceCard(
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: MetricLabel(
+                          label: 'LTE CA',
+                          value: data.lteCarrierAggregation ? 'On' : 'Off',
+                        ),
+                      ),
+                      Expanded(
+                        child: MetricLabel(
+                          label: 'NR CA',
+                          value: data.nrCarrierAggregation ? 'On' : 'Off',
+                        ),
                       ),
                     ],
                   ),
