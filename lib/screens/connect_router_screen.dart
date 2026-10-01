@@ -173,8 +173,8 @@ class _ConnectRouterScreenState extends State<ConnectRouterScreen> {
               status!,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: status!.startsWith('Connected')
-                        ? FlyxColors.success
-                        : FlyxColors.danger,
+                        ? FlyxColors.successFor(context)
+                        : FlyxColors.dangerFor(context),
                   ),
             ),
           ],
@@ -342,13 +342,13 @@ class _Step extends StatelessWidget {
           height: 34,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: FlyxColors.yellow.withValues(alpha: .12),
+            color: FlyxColors.accentFor(context).withValues(alpha: .10),
             borderRadius: BorderRadius.circular(11),
           ),
           child: Text(
             index,
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: FlyxColors.yellow,
+                  color: FlyxColors.accentFor(context),
                 ),
           ),
         ),
