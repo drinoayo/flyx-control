@@ -8,7 +8,7 @@ FlyX Control is being built as a proper consumer network-control app rather than
 
 - Premium dark mobile UI with restrained MTN-yellow accents and Inter typography.
 - Home dashboard with cellular signal, live total WAN throughput, data usage, device activity and router uptime.
-- All / Online / Blocked device views with capability-aware states.
+- All / Online / Offline / Blocked device views with capability-aware states.
 - Real connected-device discovery from the authenticated X17U client list.
 - Real 5 GHz association detail, including per-client RSSI where exposed.
 - Device detail pages that distinguish Wi-Fi association information from unverified per-device internet traffic.
@@ -21,6 +21,9 @@ FlyX Control is being built as a proper consumer network-control app rather than
 - Safe read-only X17U discovery utilities and a stock-web-UI inspector.
 - Verified Parent Control schedules for connected devices: create, edit, enable/disable and delete, with minute-level enforcement, readback verification and rollback.
 - Persistent local friendly names plus first-seen/last-seen device history keyed by MAC address.
+- Verified Instant Block / Unblock through the X17U Wi-Fi deny list on both bands, with readback verification and rollback.
+- Persistent app-observed device sessions plus tracked online time today.
+- Locally observed internet uptime and outage counts that ignore periods when FlyX Control was not observing the router.
 
 ## Confirmed X17U API mapping
 
@@ -51,11 +54,13 @@ Schedule writes are guarded: the app resolves the device's current LAN IP, prese
 
 ## Blocking and per-device limits
 
-The tested firmware accepts filter-related commands but does not expose the current filter list or mode in readable form. FlyX Control therefore keeps router-side Block/Unblock disabled for now. Writing a guessed deny-list configuration could lock legitimate devices out of the router.
+Instant Block / Unblock is verified on the tested MTN X17U firmware through command 278, the stock Wi-Fi deny-list path. FlyX Control writes both Wi-Fi bands, preserves existing rules, refuses whitelist mode, verifies readback, and attempts an exact rollback if either band does not match.
 
-The connected-device list includes a flow field, but it currently reports 0 for active clients. The 5 GHz association command also reports txrate and rxrate as 0 on the tested setup. Those fields are not treated as real per-device internet usage or speed.
+The connected-device list still exposes no trustworthy per-device byte counter. In an idle-vs-active traffic test, the DHCP `flow` field remained 0 and command 355 returned no usable client accounting. Wi-Fi `txrate` did react to traffic, but it is an association/link-rate field and is not treated as real Internet throughput or data usage.
 
-Daily and weekly whole-router usage is still possible: FlyX Control records deltas from the verified cumulative WAN byte counters locally. Monthly total/download/upload values come directly from the router.
+The stock MTN frontend contains generic Speed Limit/LAN Speed Limit/WAN Speed Limit translation strings, but its actual route table and API wrappers expose no usable per-device speed-limit/QoS implementation on this firmware. Per-device quotas therefore remain disabled rather than being simulated.
+
+Daily and weekly whole-router usage is still available: FlyX Control records deltas from the verified cumulative WAN byte counters locally. Monthly total/download/upload values come directly from the router.
 
 ## Safe discovery
 
@@ -75,12 +80,12 @@ Do not publish unredacted router reports containing device identifiers.
 
 ## Next live-device milestones
 
-1. Identify the stock UI's exact MAC-filter/block payload before enabling device blocking.
-2. Determine whether this MTN firmware exposes any usable per-device byte accounting through another command.
+1. Verify the router's own clock/timezone response so scheduled-block status uses router time rather than phone time.
+2. Add recent connection/outage history views on top of the new persistent observation stores.
 3. Map Wi-Fi settings.
 4. Map SMS and USSD.
 5. Verify reboot, network-mode and advanced radio controls.
-6. Expand local device history with session summaries and optional cleanup/forget controls.
+6. Add cleanup/forget controls for remembered devices and finish Android release packaging.
 
 
 ## Android development setup
