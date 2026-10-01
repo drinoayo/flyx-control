@@ -439,3 +439,20 @@ Observed result:
 This confirms the stock cmd 278 deny-list path is writable, readable after materialization, reversible, and suitable for FlyX Control's instant Block/Unblock feature on the tested firmware.
 
 Production blocking therefore uses cmd 278 on both bands, preserves existing entries, refuses whitelist mode, verifies readback after every write, and attempts rollback if either band does not match the intended state.
+
+
+## Android beta: Instant Block / Unblock verified end to end
+
+The production FlyX Control Android beta has now been tested successfully against a real connected Wi-Fi device.
+
+Confirmed through the app:
+
+- friendly-name dialog Cancel works without a Flutter assertion;
+- friendly-name Save works without a Flutter assertion;
+- Instant Block successfully denies the selected device's network access;
+- the blocked device remains represented in FlyX Control's Blocked view;
+- Instant Unblock successfully restores access.
+
+This confirms the complete app-side cmd 278 lifecycle on the tested firmware: device selection, both-band deny-list write, readback verification, blocked-state persistence in the app, and unblock restoration.
+
+Instant Block / Unblock is therefore considered complete for the v0.1 beta on the tested MTN X17U firmware.
