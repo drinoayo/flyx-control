@@ -95,7 +95,7 @@ class _UssdScreenState extends State<UssdScreen> {
               style: Theme.of(context)
                   .textTheme
                   .bodyMedium
-                  ?.copyWith(color: FlyxColors.muted),
+                  ?.copyWith(color: FlyxColors.mutedFor(context)),
             ),
             const SizedBox(height: 18),
             SurfaceCard(
@@ -157,11 +157,11 @@ class _UssdScreenState extends State<UssdScreen> {
                     ),
                     decoration: BoxDecoration(
                       color: entry.outgoing
-                          ? FlyxColors.yellow.withValues(alpha: .12)
+                          ? FlyxColors.accentFor(context).withValues(alpha: .10)
                           : Theme.of(context).colorScheme.surface,
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: FlyxColors.muted.withValues(alpha: .12),
+                        color: FlyxColors.mutedFor(context).withValues(alpha: .12),
                       ),
                     ),
                     child: SelectableText(entry.value),
