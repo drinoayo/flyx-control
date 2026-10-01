@@ -469,7 +469,30 @@ class ZltRouterRepository implements RouterRepository {
 
   DateTime? _parseRouterSystemTime(String value) {
     final match = RegExp(
-      r'^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2}):(\d{2})
+      r'^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2}):(\d{2})$' ,
+    ).firstMatch(value.trim());
+    if (match == null) return null;
+    final parts = <int>[];
+    for (var i = 1; i <= 6; i++) {
+      final parsed = int.tryParse(match.group(i)!);
+      if (parsed == null) return null;
+      parts.add(parsed);
+    }
+    try {
+      return DateTime(
+        parts[0],
+        parts[1],
+        parts[2],
+        parts[3],
+        parts[4],
+        parts[5],
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _refreshBlocked() async {
     try {
       final blocked = <String>{};
       for (final subcmd in const ['0', '1']) {
@@ -510,7 +533,6 @@ class ZltRouterRepository implements RouterRepository {
       // Block state remains unchanged if neither filter source is readable.
     }
   }
-
   Future<Map<String, dynamic>> _wirelessFilterState(String subcmd) async {
     final raw = await client.readWirelessMacFilter(subcmd);
     if (raw == null) {
