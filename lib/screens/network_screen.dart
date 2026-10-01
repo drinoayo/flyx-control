@@ -179,7 +179,35 @@ class _NetworkScreenState extends State<NetworkScreen> {
                       _HealthRow(
                         icon: Icons.restart_alt_rounded,
                         title: 'Router uptime',
-                        value: n.routerUptime == Duration.zero ? 'Waiting for router field' : formatDuration(n.routerUptime),
+                        value: n.routerUptime == Duration.zero
+                            ? 'Waiting for router field'
+                            : formatDuration(n.routerUptime),
+                      ),
+                      const Divider(height: 24, indent: 46),
+                      _HealthRow(
+                        icon: Icons.public_rounded,
+                        title: 'Observed internet uptime',
+                        value: n.internetObservationDuration == Duration.zero
+                            ? 'Collecting'
+                            : '${n.internetUptimePercent.toStringAsFixed(1)}%',
+                        valueColor:
+                            n.internetObservationDuration == Duration.zero
+                                ? FlyxColors.muted
+                                : FlyxColors.success,
+                      ),
+                      const Divider(height: 24, indent: 46),
+                      _HealthRow(
+                        icon: Icons.history_toggle_off_rounded,
+                        title: 'Observed outages today',
+                        value: n.internetObservationDuration == Duration.zero
+                            ? 'Collecting'
+                            : '${n.outagesToday}',
+                        valueColor:
+                            n.internetObservationDuration == Duration.zero
+                                ? FlyxColors.muted
+                                : n.outagesToday == 0
+                                    ? FlyxColors.success
+                                    : FlyxColors.warning,
                       ),
                       const Divider(height: 24, indent: 46),
                       _HealthRow(
