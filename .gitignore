@@ -13,8 +13,3 @@ ios/Pods/
 ios/.symlinks/
 *.iml
 flyx-report.json
-
-# Private Android signing material
-*.jks
-*.keystore
-*keystore-base64*.txt
