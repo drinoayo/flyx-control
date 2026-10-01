@@ -68,11 +68,21 @@ class DeviceDetailScreen extends StatelessWidget {
                     ),
                     Expanded(
                       child: MetricLabel(
-                        label: 'OBSERVED',
+                        label: 'SESSION',
                         value: formatDuration(device.currentSession),
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 14),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Tracked online today: ${formatDuration(device.totalOnlineToday)}',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: FlyxColors.muted,
+                        ),
+                  ),
                 ),
                 if (device.wifiTxLinkMbps != null ||
                     device.wifiRxLinkMbps != null) ...[
