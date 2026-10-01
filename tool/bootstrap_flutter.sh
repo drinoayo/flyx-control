@@ -15,12 +15,14 @@ cp "$ROOT/pubspec.yaml" "$TMP/pubspec.yaml"
 cp "$ROOT/analysis_options.yaml" "$TMP/analysis_options.yaml"
 
 cd "$ROOT"
-flutter create --project-name flyx_control --org com.etchpoint.flyxcontrol --platforms=android,ios .
+flutter create --project-name flyx_control --org com.flyxcontrol --platforms=android,ios .
 rm -rf "$ROOT/lib"
 cp -R "$TMP/lib" "$ROOT/lib"
 cp "$TMP/pubspec.yaml" "$ROOT/pubspec.yaml"
 cp "$TMP/analysis_options.yaml" "$ROOT/analysis_options.yaml"
+python3 "$ROOT/tool/apply_android_router_config.py"
+python3 "$ROOT/tool/apply_android_widget_config.py"
 flutter pub get
 
 echo
-echo "Flutter platform shells generated. Apply the local-network settings documented in platform_patches/ and README.md before running on a device."
+echo "Flutter platform shells generated and FlyX Android patches applied."
