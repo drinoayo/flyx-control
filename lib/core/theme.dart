@@ -16,16 +16,47 @@ class FlyxColors {
 }
 
 class FlyxTheme {
-  static ThemeData dark() {
+  static ThemeData dark() => _build(Brightness.dark);
+
+  static ThemeData light() => _build(Brightness.light);
+
+  static ThemeData _build(Brightness brightness) {
+    final dark = brightness == Brightness.dark;
+    final background =
+        dark ? FlyxColors.ink : const Color(0xFFF6F7F9);
+    final surface =
+        dark ? FlyxColors.surface : Colors.white;
+    final surfaceHigh =
+        dark ? const Color(0xFF171B20) : const Color(0xFFF0F2F5);
+    final line =
+        dark ? FlyxColors.line : const Color(0xFFDDE1E7);
+    final onSurface =
+        dark ? const Color(0xFFF7F8FA) : const Color(0xFF171A1F);
+    final onSurfaceVariant =
+        dark ? FlyxColors.muted : const Color(0xFF667085);
+    final accent =
+        dark ? FlyxColors.yellow : const Color(0xFF8A6800);
+
+    final scheme = ColorScheme(
+      brightness: brightness,
+      primary: accent,
+      onPrimary: dark ? FlyxColors.ink : Colors.white,
+      secondary: dark ? FlyxColors.yellowSoft : const Color(0xFF9A7400),
+      onSecondary: dark ? FlyxColors.ink : Colors.white,
+      error: FlyxColors.danger,
+      onError: Colors.white,
+      surface: surface,
+      onSurface: onSurface,
+      surfaceContainerHighest: surfaceHigh,
+      onSurfaceVariant: onSurfaceVariant,
+      outline: line,
+      outlineVariant: line,
+    );
+
     final base = ThemeData(
-      brightness: Brightness.dark,
+      brightness: brightness,
       useMaterial3: true,
-      colorScheme: const ColorScheme.dark(
-        primary: FlyxColors.yellow,
-        secondary: FlyxColors.yellowSoft,
-        surface: FlyxColors.surface,
-        error: FlyxColors.danger,
-      ),
+      colorScheme: scheme,
     );
 
     final textTheme = GoogleFonts.interTextTheme(base.textTheme).copyWith(
@@ -34,69 +65,117 @@ class FlyxTheme {
         height: 1.05,
         fontWeight: FontWeight.w700,
         letterSpacing: -1.2,
+        color: onSurface,
       ),
       headlineMedium: GoogleFonts.inter(
         fontSize: 24,
         height: 1.15,
         fontWeight: FontWeight.w700,
         letterSpacing: -0.6,
+        color: onSurface,
       ),
       titleLarge: GoogleFonts.inter(
         fontSize: 18,
         fontWeight: FontWeight.w700,
         letterSpacing: -0.3,
+        color: onSurface,
       ),
       titleMedium: GoogleFonts.inter(
         fontSize: 15,
         fontWeight: FontWeight.w600,
+        color: onSurface,
       ),
-      bodyLarge: GoogleFonts.inter(fontSize: 15, height: 1.45),
-      bodyMedium: GoogleFonts.inter(fontSize: 13.5, height: 1.45),
-      labelLarge: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600),
-      labelMedium: GoogleFonts.inter(fontSize: 11.5, fontWeight: FontWeight.w600),
+      bodyLarge: GoogleFonts.inter(
+        fontSize: 15,
+        height: 1.45,
+        color: onSurface,
+      ),
+      bodyMedium: GoogleFonts.inter(
+        fontSize: 13.5,
+        height: 1.45,
+        color: onSurface,
+      ),
+      labelLarge: GoogleFonts.inter(
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+        color: onSurface,
+      ),
+      labelMedium: GoogleFonts.inter(
+        fontSize: 11.5,
+        fontWeight: FontWeight.w600,
+        color: onSurface,
+      ),
     );
 
     return base.copyWith(
-      scaffoldBackgroundColor: FlyxColors.ink,
+      scaffoldBackgroundColor: background,
       textTheme: textTheme,
-      dividerColor: FlyxColors.line,
+      dividerColor: line,
       splashFactory: InkSparkle.splashFactory,
+      appBarTheme: AppBarTheme(
+        backgroundColor: background,
+        foregroundColor: onSurface,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+      ),
       navigationBarTheme: NavigationBarThemeData(
         height: 72,
-        backgroundColor: FlyxColors.ink,
-        indicatorColor: FlyxColors.yellow.withValues(alpha: .14),
-        labelTextStyle: WidgetStatePropertyAll(textTheme.labelMedium),
+        backgroundColor: background,
+        indicatorColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          return IconThemeData(
+            color: states.contains(WidgetState.selected)
+                ? accent
+                : onSurfaceVariant,
+            size: states.contains(WidgetState.selected) ? 27 : 25,
+          );
+        }),
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          return textTheme.labelMedium?.copyWith(
+            color: states.contains(WidgetState.selected)
+                ? accent
+                : onSurfaceVariant,
+            fontWeight: states.contains(WidgetState.selected)
+                ? FontWeight.w700
+                : FontWeight.w600,
+          );
+        }),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           foregroundColor: FlyxColors.ink,
           backgroundColor: FlyxColors.yellow,
           minimumSize: const Size.fromHeight(52),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           textStyle: textTheme.labelLarge,
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: FlyxColors.surface,
-        hintStyle: textTheme.bodyMedium?.copyWith(color: FlyxColors.muted),
+        fillColor: surface,
+        hintStyle: textTheme.bodyMedium?.copyWith(
+          color: onSurfaceVariant,
+        ),
+        labelStyle: textTheme.bodyMedium?.copyWith(
+          color: onSurfaceVariant,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: FlyxColors.line),
+          borderSide: BorderSide(color: line),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: FlyxColors.line),
+          borderSide: BorderSide(color: line),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: FlyxColors.yellow),
+          borderSide: BorderSide(color: accent),
         ),
       ),
+      cardColor: surface,
     );
-  }
-
-  static ThemeData light() {
-    return dark();
   }
 }
