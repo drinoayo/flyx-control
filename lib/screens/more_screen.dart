@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/theme.dart';
 import '../state/app_scope.dart';
 import '../state/appearance_scope.dart';
+import '../services/widget_sync_service.dart';
 import '../widgets/common.dart';
 import 'connect_router_screen.dart';
 import 'messages_screen.dart';
@@ -108,6 +109,18 @@ class MoreScreen extends StatelessWidget {
                 ),
 
               ],
+            ),
+          ),
+          const SizedBox(height: 26),
+          const SectionTitle(title: 'Home screen'),
+          const SizedBox(height: 10),
+          SurfaceCard(
+            child: _FeatureRow(
+              icon: Icons.widgets_rounded,
+              title: 'Add FlyX widget',
+              subtitle: 'Choose a design, 1–4 details, and light or dark appearance',
+              enabled: true,
+              onTap: () => _addWidget(context),
             ),
           ),
           const SizedBox(height: 26),
@@ -219,6 +232,20 @@ class MoreScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _addWidget(BuildContext context) async {
+    final requested = await WidgetSyncService.requestPinWidget();
+    if (!context.mounted) return;
+    if (!requested) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Your launcher did not open the widget picker. Long-press the home screen, choose Widgets, then select FlyX Control.',
+          ),
+        ),
+      );
+    }
   }
 
   Future<void> _reboot(BuildContext context) async {
