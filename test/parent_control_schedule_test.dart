@@ -15,6 +15,19 @@ void main() {
       expect(schedule.isActiveAt(sunday), isTrue);
     });
 
+    test('supports minute-level blocked windows', () {
+      const schedule = ParentControlSchedule(
+        enabled: true,
+        startTime: '06:00',
+        endTime: '06:10',
+        days: {4},
+      );
+
+      expect(schedule.isActiveAt(DateTime(2026, 10, 1, 6, 0)), isTrue);
+      expect(schedule.isActiveAt(DateTime(2026, 10, 1, 6, 9)), isTrue);
+      expect(schedule.isActiveAt(DateTime(2026, 10, 1, 6, 10)), isFalse);
+    });
+
     test('uses an end-exclusive blocked window', () {
       const schedule = ParentControlSchedule(
         enabled: true,
