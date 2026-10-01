@@ -10,7 +10,10 @@ import 'services/zlt_client.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  final saved = await const SecureRouterStore().load();
+  final savedFuture = const SecureRouterStore().load();
+  final themeFuture = const AppearanceStore().load();
+  final saved = await savedFuture;
+  final initialThemeMode = await themeFuture;
   final configured = saved != null;
   RouterRepository repository = MockRouterRepository();
 
@@ -26,6 +29,7 @@ Future<void> main() async {
     FlyxApp(
       repository: repository,
       initiallyConfigured: configured,
+      initialThemeMode: initialThemeMode,
     ),
   );
 }
