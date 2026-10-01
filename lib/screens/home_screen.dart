@@ -190,7 +190,11 @@ class _HomeScreenState extends State<HomeScreen> {
                               : formatDuration(network.routerUptime),
                         ),
                       ),
-                      Container(width: 1, height: 44, color: FlyxColors.line),
+                      Container(
+                        width: 1,
+                        height: 44,
+                        color: Theme.of(context).dividerColor,
+                      ),
                       const SizedBox(width: 18),
                       Expanded(
                         child: MetricLabel(
