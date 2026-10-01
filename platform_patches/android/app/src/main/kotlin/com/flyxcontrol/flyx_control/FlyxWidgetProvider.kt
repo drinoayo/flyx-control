@@ -159,11 +159,48 @@ class FlyxWidgetProvider : AppWidgetProvider() {
                 views.setTextViewText(valueId(index), data.getString(metric, "—") ?: "—")
             }
 
-            if (style == "focus") {
-                views.setViewVisibility(
-                    R.id.widget_secondary_metrics,
-                    if (metrics.size > 1) View.VISIBLE else View.GONE,
-                )
+            when (style) {
+                "focus" -> {
+                    views.setViewVisibility(
+                        R.id.widget_secondary_metrics,
+                        if (metrics.size > 1) View.VISIBLE else View.GONE,
+                    )
+                }
+                "overview" -> {
+                    val showSecondary = metrics.size > 2
+                    views.setViewVisibility(
+                        R.id.widget_secondary_metrics,
+                        if (showSecondary) View.VISIBLE else View.GONE,
+                    )
+                    views.setViewVisibility(
+                        R.id.widget_secondary_divider,
+                        if (showSecondary) View.VISIBLE else View.GONE,
+                    )
+                }
+                "split" -> {
+                    views.setViewVisibility(
+                        R.id.widget_primary_divider,
+                        if (metrics.size > 1) View.VISIBLE else View.GONE,
+                    )
+                    views.setViewVisibility(
+                        R.id.widget_secondary_metrics,
+                        if (metrics.size > 2) View.VISIBLE else View.GONE,
+                    )
+                }
+                "grid" -> {
+                    views.setViewVisibility(
+                        R.id.widget_primary_gap,
+                        if (metrics.size > 1) View.VISIBLE else View.GONE,
+                    )
+                    views.setViewVisibility(
+                        R.id.widget_secondary_metrics,
+                        if (metrics.size > 2) View.VISIBLE else View.GONE,
+                    )
+                    views.setViewVisibility(
+                        R.id.widget_secondary_gap,
+                        if (metrics.size > 3) View.VISIBLE else View.GONE,
+                    )
+                }
             }
 
             val updatedAt = data.getLong("updatedAt", 0L)
