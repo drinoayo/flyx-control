@@ -39,9 +39,17 @@ class MoreScreen extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Connect your real FlyX', style: Theme.of(context).textTheme.titleLarge),
+                      Text(
+                        'Router connection',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
                       const SizedBox(height: 4),
-                      Text('192.168.0.1 · ZLT X17U capability scan', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: FlyxColors.muted)),
+                      Text(
+                        'Manage credentials or run a fresh X17U capability scan',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: FlyxColors.muted,
+                            ),
+                      ),
                     ],
                   ),
                 ),
@@ -96,8 +104,7 @@ class MoreScreen extends StatelessWidget {
                           )
                       : null,
                 ),
-                const Divider(height: 24, indent: 46),
-                _FeatureRow(icon: Icons.shield_outlined, title: 'Blocked devices', subtitle: 'See and restore denied devices', enabled: c.blocking),
+
               ],
             ),
           ),
@@ -107,14 +114,10 @@ class MoreScreen extends StatelessWidget {
           SurfaceCard(
             child: Column(
               children: [
-                _FeatureRow(icon: Icons.radar_rounded, title: 'Capability scan', subtitle: '${c.discoveredActions.length} actions discovered', enabled: true),
-                const Divider(height: 24, indent: 46),
                 _FeatureRow(
-                  icon: Icons.data_usage_rounded,
-                  title: 'Usage history',
-                  subtitle: c.perDeviceTraffic
-                      ? 'Per-device counters available'
-                      : 'Whole-router daily and weekly history',
+                  icon: Icons.radar_rounded,
+                  title: 'Capabilities',
+                  subtitle: '${c.discoveredActions.length} router actions verified',
                   enabled: true,
                 ),
                 const Divider(height: 24, indent: 46),
@@ -238,7 +241,24 @@ class _FeatureRow extends StatelessWidget {
               ],
             ),
           ),
-          Icon(enabled ? Icons.chevron_right_rounded : Icons.lock_outline_rounded, color: FlyxColors.muted, size: 20),
+          if (!enabled)
+            const Icon(
+              Icons.lock_outline_rounded,
+              color: FlyxColors.muted,
+              size: 20,
+            )
+          else if (onTap != null)
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: FlyxColors.muted,
+              size: 20,
+            )
+          else
+            const Icon(
+              Icons.check_circle_outline_rounded,
+              color: FlyxColors.success,
+              size: 20,
+            ),
         ],
       ),
     );
