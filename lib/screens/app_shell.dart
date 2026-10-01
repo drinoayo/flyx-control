@@ -21,6 +21,7 @@ class _AppShellState extends State<AppShell> {
     final pages = [
       HomeScreen(
         onViewAllDevices: () => setState(() => index = 2),
+        onOpenNetwork: () => setState(() => index = 1),
       ),
       const NetworkScreen(),
       const DevicesScreen(),
