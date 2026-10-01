@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/formatters.dart';
 import '../core/theme.dart';
+import '../models/models.dart';
 import '../state/app_scope.dart';
 import '../widgets/common.dart';
 
