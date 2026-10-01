@@ -42,7 +42,7 @@ class DeviceScheduleScreen extends StatelessWidget {
           ),
           const SizedBox(height: 5),
           Text(
-            'Schedule when this device should be disconnected from FlyX.',
+            'Schedule repeating hours when this device's network access should be blocked.',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: FlyxColors.muted,
                 ),
@@ -139,8 +139,8 @@ class DeviceScheduleScreen extends StatelessWidget {
                             Expanded(
                               child: Text(
                                 active
-                                    ? 'This device is inside its blocked window. The router should allow it to reconnect automatically after the window ends.'
-                                    : 'During enabled windows, the router disconnects this device from Wi-Fi. It can reconnect automatically after the window ends.',
+                                    ? 'This device is inside its scheduled blocked window. Access should recover automatically after the window ends.'
+                                    : 'During enabled windows, the router blocks this device's access. The router's association list may still show the device, so FlyX Control does not treat disappearance from that list as proof of enforcement.',
                                 style: Theme.of(context)
                                     .textTheme
                                     .bodySmall
@@ -272,7 +272,7 @@ class DeviceScheduleScreen extends StatelessWidget {
       builder: (context) => AlertDialog(
         title: Text('Enable schedule for ${device.name}?'),
         content: const Text(
-          'During the selected hours this device can be disconnected from FlyX. Make sure you are not relying on this same device to manage the router during the blocked window.',
+          'During the selected hours this device's network access can be blocked. Make sure you are not relying on this same device to manage the router during the blocked window.',
         ),
         actions: [
           TextButton(
