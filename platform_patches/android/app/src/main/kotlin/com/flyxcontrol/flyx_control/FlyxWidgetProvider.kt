@@ -114,7 +114,6 @@ class FlyxWidgetProvider : AppWidgetProvider() {
 
             views.setInt(R.id.widget_root, "setBackgroundResource", background)
             views.setTextColor(R.id.widget_title, brand)
-            views.setInt(R.id.widget_accent_bar, "setBackgroundColor", brand)
             views.setTextColor(R.id.widget_status, muted)
             views.setTextColor(R.id.widget_updated, muted)
 
