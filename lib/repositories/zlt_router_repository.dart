@@ -606,6 +606,259 @@ class ZltRouterRepository implements RouterRepository {
   }
 
   @override
+  Future<WifiSettingsSnapshot> fetchWifiSettings() async {
+    await _ensureLogin();
+    final results = await Future.wait<Map<String, dynamic>>([
+      client.command(
+        2,
+        authenticated: true,
+        fields: const {'subcmd': 0},
+      ),
+      client.command(
+        211,
+        authenticated: true,
+        fields: const {'subcmd': 0},
+      ),
+      client.command(
+        230,
+        authenticated: true,
+        fields: const {'subcmd': '0'},
+      ),
+      client.command(
+        231,
+        authenticated: true,
+        fields: const {'subcmd': '0'},
+      ),
+      client.command(
+        132,
+        authenticated: true,
+        fields: const {'subcmd': '0'},
+      ),
+      client.command(
+        132,
+        authenticated: true,
+        fields: const {'subcmd': '1'},
+      ),
+    ]);
+
+    return WifiSettingsSnapshot(
+      twoFourGhz: _wifiBandSettings(
+        WifiBand.twoFourGhz,
+        primary: results[0],
+        radio: results[2],
+        wps: results[4],
+      ),
+      fiveGhz: _wifiBandSettings(
+        WifiBand.fiveGhz,
+        primary: results[1],
+        radio: results[3],
+        wps: results[5],
+      ),
+    );
+  }
+
+  WifiBandSettings _wifiBandSettings(
+    WifiBand band, {
+    required Map<String, dynamic> primary,
+    required Map<String, dynamic> radio,
+    required Map<String, dynamic> wps,
+  }) {
+    final fallbackChannel = band == WifiBand.twoFourGhz
+        ? _text(primary['wifi24Channel'])
+        : _text(primary['wifi5Channel']);
+    final radioChannel = _text(radio['channel']);
+    final wpsKey = band == WifiBand.twoFourGhz
+        ? 'wlan2g_wps_switch'
+        : 'wlan5g_wps_switch';
+
+    return WifiBandSettings(
+      band: band,
+      ssid: _decodeWifiSsid(_text(primary['ssid'])),
+      enabled: _text(primary['wifiOpen']) == '1',
+      broadcast: _text(primary['broadcast']) == '1',
+      channel: radioChannel.isEmpty ? fallbackChannel : radioChannel,
+      bandwidthCode: _text(radio['bandWidth']),
+      txPowerPercent: _int(radio['txPower']),
+      maxClients: _int(radio['maxNum']),
+      wpsEnabled: _text(wps[wpsKey]) == '1',
+    );
+  }
+
+  @override
+  Future<WifiUpdateResult> updateWifiPrimary(
+    WifiBand band, {
+    String? ssid,
+    String? password,
+    bool? broadcast,
+  }) async {
+    await _ensureLogin();
+    final report = await _ensureDiscovery();
+    final cmd = band == WifiBand.twoFourGhz ? 2 : 211;
+    if (!report.supportsCommand(cmd)) {
+      throw RouterFeatureUnavailable(
+        'This Wi-Fi band is not readable on the connected router.',
+      );
+    }
+
+    final current = await client.command(
+      cmd,
+      authenticated: true,
+      fields: const {'subcmd': 0},
+    );
+    final original = _wifiPrimaryForm(current);
+    final updated = Map<String, dynamic>.from(original);
+
+    final requestedSsid = ssid?.trim();
+    if (ssid != null) {
+      if (requestedSsid == null || requestedSsid.isEmpty) {
+        throw RouterFeatureUnavailable('Wi-Fi name cannot be empty.');
+      }
+      final bytes = utf8.encode(requestedSsid);
+      if (bytes.length > 31 ||
+          requestedSsid.contains(RegExp(r'[\x00-\x1F\x7F]'))) {
+        throw RouterFeatureUnavailable(
+          'Wi-Fi name must be 31 bytes or fewer and cannot contain control characters.',
+        );
+      }
+      updated['ssid'] = base64Encode(bytes);
+    }
+
+    if (password != null && password.isNotEmpty) {
+      if (_text(original['authenticationType']) == '0') {
+        throw RouterFeatureUnavailable(
+          'This network is currently open. FlyX Control will not change its security mode implicitly.',
+        );
+      }
+      final invalidPassword = password.length < 8 ||
+          password.length > 31 ||
+          password.contains(RegExp(r'\s')) ||
+          password.contains(RegExp(r'''[\\'";]''')) ||
+          password.codeUnits.any((unit) => unit > 0x7f);
+      if (invalidPassword) {
+        throw RouterFeatureUnavailable(
+          'Wi-Fi password must be 8–31 ASCII characters with no spaces, backslashes, quotes or semicolons.',
+        );
+      }
+      updated['key'] = password;
+    }
+
+    if (broadcast != null) {
+      updated['broadcast'] = broadcast ? '1' : '0';
+    }
+
+    final changed = !_sameJson(updated, original);
+    if (!changed) return const WifiUpdateResult();
+
+    final credentialChanged =
+        _text(updated['ssid']) != _text(original['ssid']) ||
+            _text(updated['key']) != _text(original['key']);
+
+    Object? primaryError;
+    try {
+      await client.writeExact(
+        cmd,
+        {
+          ...updated,
+          'subcmd': 0,
+        },
+      );
+
+      // Renaming the network or changing its password may immediately drop
+      // the phone from this Wi-Fi. Do not pretend a readback is possible in
+      // that case; the successful stock write response is the last reliable
+      // point before the client may disconnect.
+      if (credentialChanged) {
+        return const WifiUpdateResult(reconnectExpected: true);
+      }
+
+      final readback = await client.command(
+        cmd,
+        authenticated: true,
+        fields: const {'subcmd': 0},
+      );
+      if (!_wifiPrimaryMatches(readback, updated, checkKey: false)) {
+        throw RouterFeatureUnavailable(
+          'The router did not confirm the Wi-Fi change.',
+        );
+      }
+      return const WifiUpdateResult();
+    } catch (error) {
+      primaryError = error;
+    }
+
+    try {
+      await client.writeExact(
+        cmd,
+        {
+          ...original,
+          'subcmd': 0,
+        },
+      );
+      final restored = await client.command(
+        cmd,
+        authenticated: true,
+        fields: const {'subcmd': 0},
+      );
+      if (!_wifiPrimaryMatches(restored, original, checkKey: false)) {
+        throw RouterFeatureUnavailable(
+          'The router did not confirm an exact Wi-Fi rollback.',
+        );
+      }
+    } catch (rollbackError) {
+      throw RouterFeatureUnavailable(
+        'The Wi-Fi change failed and rollback could not be verified. Check the MTN Wi-Fi page before trying another change. Original error: $primaryError. Rollback error: $rollbackError',
+      );
+    }
+
+    throw RouterFeatureUnavailable(
+      'The Wi-Fi change was not saved. The previous settings were restored. $primaryError',
+    );
+  }
+
+  Map<String, dynamic> _wifiPrimaryForm(Map<String, dynamic> raw) {
+    const keys = [
+      'wifiSames',
+      'wifiOpen',
+      'broadcast',
+      'wifiwmm',
+      'ssid',
+      'authenticationType',
+      'key',
+    ];
+    return {for (final key in keys) key: raw[key] ?? ''};
+  }
+
+  bool _wifiPrimaryMatches(
+    Map<String, dynamic> readback,
+    Map<String, dynamic> expected, {
+    required bool checkKey,
+  }) {
+    const keys = [
+      'wifiSames',
+      'wifiOpen',
+      'broadcast',
+      'wifiwmm',
+      'ssid',
+      'authenticationType',
+    ];
+    for (final key in keys) {
+      if (_text(readback[key]) != _text(expected[key])) return false;
+    }
+    if (checkKey && _text(readback['key']) != _text(expected['key'])) {
+      return false;
+    }
+    return true;
+  }
+
+  String _decodeWifiSsid(String value) {
+    if (value.isEmpty) return '';
+    try {
+      return utf8.decode(base64Decode(value));
+    } catch (_) {
+      return value;
+    }
+  }
+  @override
   Future<RouterCapabilities> capabilities() async {
     final report = await _ensureDiscovery();
     return RouterCapabilities(
@@ -615,7 +868,7 @@ class ZltRouterRepository implements RouterRepository {
       scheduling: report.canSchedule,
       sms: false,
       ussd: false,
-      wifiSettings: false,
+      wifiSettings: report.supportsCommand(2) && report.supportsCommand(211),
       reboot: false,
       perDeviceTraffic: false,
       qos: false,
