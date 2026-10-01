@@ -334,3 +334,26 @@ Observed result:
 This verifies FlyX Control's own JSON write transport, cmd 233 write-token flow, cmd 385 Parent Control save, cmd 20 apply, readback verification, and exact rollback path on the tested firmware.
 
 Production schedule controls can now use the same pattern: preserve the full rule list, resolve the device's current LAN IP, save cmd 385, apply cmd 20, verify cmd 385 readback, and roll back on mismatch.
+
+
+## Android beta: Parent Control verified in the real app
+
+The first Android beta was installed on a real phone and connected successfully to the MTN FlyX router.
+
+Verified through FlyX Control itself:
+
+- create a Parent Control schedule;
+- read the created schedule back in the app;
+- disable the schedule;
+- delete the schedule.
+
+An initial follow-up action exposed an expired router session: cmd 223 returned NO_AUTH before the schedule write. FlyX Control was updated to detect NO_AUTH, reauthenticate once with the stored router credentials, and retry the failed authenticated command. After that change, disable and delete both succeeded from the app.
+
+This confirms the Android app's end-to-end Parent Control path for create, disable and delete on the tested firmware, including automatic session recovery during later actions.
+
+Remaining app-side Parent Control checks:
+
+- edit an existing schedule and verify readback;
+- enable a disabled schedule for a short future window;
+- confirm router enforcement and automatic recovery after the window;
+- verify the app's displayed "currently blocked" state against router time before relying on phone-local time.
