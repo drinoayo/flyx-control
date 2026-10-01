@@ -315,3 +315,22 @@ The Kids Management save flow writes the complete datas array through cmd 385 an
 The bundled Axios request transform serializes object payloads as JSON and sets application/json;charset=utf-8. This is consistent with the JSON transport already used successfully by the discovery tooling.
 
 Parent Control's stock-UI lifecycle and apply command are therefore mapped. App-side writes should still pass one reversible test using FlyX Control's own request code before the production UI enables schedule editing. The test must use a disabled rule, preserve the original datas array, apply cmd 20 after cmd 385, verify readback, and restore the original rules even if verification fails.
+
+
+## Reversible app-side Parent Control write test
+
+The dedicated FlyX Control write-path test completed successfully against the real router with no pre-existing Parent Control rules.
+
+Observed result:
+
+- the temporary rule was created as disabled;
+- cmd 385 save succeeded;
+- cmd 20 apply succeeded;
+- cmd 385 readback matched the temporary rule;
+- cleanup restored the original empty rule list;
+- cmd 20 apply after cleanup succeeded;
+- final readback matched the original state exactly.
+
+This verifies FlyX Control's own JSON write transport, cmd 233 write-token flow, cmd 385 Parent Control save, cmd 20 apply, readback verification, and exact rollback path on the tested firmware.
+
+Production schedule controls can now use the same pattern: preserve the full rule list, resolve the device's current LAN IP, save cmd 385, apply cmd 20, verify cmd 385 readback, and roll back on mismatch.
