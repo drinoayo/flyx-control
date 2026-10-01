@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Read-only inspection of the X17U stock web UI.
 
-Version 0.7 is more tolerant of router front-ends that do not place ordinary
-<script src="..."> tags on /. It follows same-origin HTML/iframe/meta-refresh
-references, discovers JS-like URLs from script/link/src/href attributes and
-quoted strings, and records small sanitized previews of entry documents.
+Version 0.8 expands the read-only scan to the Wi-Fi, SMS and USSD feature
+groups while keeping the same no-login/no-command safety boundary. It follows
+same-origin HTML/iframe/meta-refresh references, discovers JS-like URLs from
+script/link/src/href attributes and quoted strings, and records small sanitized
+previews of entry documents.
 
 No login is performed and no router command is sent.
 """
@@ -52,6 +53,28 @@ PATTERNS = [
     r"getMACData",
     r"getWirelessFilter",
     r"setWirelessFilter",
+    r"wifi",
+    r"wlan",
+    r"ssid",
+    r"wps",
+    r"channel",
+    r"bandwidth",
+    r"broadcast",
+    r"security",
+    r"authMode",
+    r"encrypt",
+    r"getWifi",
+    r"setWifi",
+    r"getWlan",
+    r"setWlan",
+    r"sms",
+    r"ussd",
+    r"getSms",
+    r"setSms",
+    r"sendSms",
+    r"deleteSms",
+    r"getUssd",
+    r"setUssd",
     r"acceptAll",
     r"enableRule",
     r"ippro",
@@ -125,6 +148,11 @@ TARGET_ROUTE_WORDS = (
     "device",
     "firewall",
     "parent",
+    "wifi",
+    "wlan",
+    "wps",
+    "sms",
+    "ussd",
 )
 
 ENTRY_PATHS = (
@@ -410,6 +438,13 @@ def main() -> int:
             "speedLimit",
             "Attached Devices",
             "Filtering Rules",
+            "wifi24",
+            "wifi5",
+            "wifiSet",
+            "wps24",
+            "wps5",
+            "/sms",
+            "/ussd",
         ):
             start = 0
             while True:
@@ -483,7 +518,7 @@ def main() -> int:
     api_wrapper_candidates: list[dict[str, Any]] = []
     if app_js_text:
         interesting = re.compile(
-            r"(speed|flow|traffic|quota|usage|qos|rate|station|client|device|wireless|limit)",
+            r"(speed|flow|traffic|quota|usage|qos|rate|station|client|device|wireless|wifi|wlan|ssid|wps|sms|ussd|network|reboot|limit)",
             re.IGNORECASE,
         )
         seen_wrappers: set[tuple[str, str]] = set()
@@ -519,7 +554,7 @@ def main() -> int:
         "read_only": True,
         "login_attempted": False,
         "router_commands_sent": False,
-        "version": "0.7",
+        "version": "0.8",
         "urls_fetched": len(seen_urls),
         "script_assets_found": len(script_refs),
         "all_references_found": len(discovered_refs),
