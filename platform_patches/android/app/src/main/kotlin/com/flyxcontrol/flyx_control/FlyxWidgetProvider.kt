@@ -49,7 +49,7 @@ class FlyxWidgetProvider : AppWidgetProvider() {
         private val metricLabels = mapOf(
             "download" to "Download",
             "upload" to "Upload",
-            "devices" to "Connected devices",
+            "devices" to "Devices",
             "uptime" to "Router uptime",
             "messages" to "Messages",
             "today" to "Usage today",
