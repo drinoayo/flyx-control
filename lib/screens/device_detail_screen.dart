@@ -446,23 +446,22 @@ class DeviceDetailScreen extends StatelessWidget {
     BuildContext context,
     FlyxDevice device,
   ) async {
-    final controller = TextEditingController(
-      text: device.name == device.hostname ? '' : device.name,
-    );
+    var draft = device.name == device.hostname ? '' : device.name;
 
     final result = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Name this device'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            TextField(
-              controller: controller,
+            TextFormField(
+              initialValue: draft,
               autofocus: true,
               maxLength: 48,
               textCapitalization: TextCapitalization.sentences,
+              onChanged: (value) => draft = value,
               decoration: InputDecoration(
                 labelText: 'Friendly name',
                 hintText: device.hostname,
@@ -470,7 +469,7 @@ class DeviceDetailScreen extends StatelessWidget {
             ),
             Text(
               'Stored only in FlyX Control. Leave it blank to use the router hostname.',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              style: Theme.of(dialogContext).textTheme.bodySmall?.copyWith(
                     color: FlyxColors.muted,
                   ),
             ),
@@ -478,18 +477,17 @@ class DeviceDetailScreen extends StatelessWidget {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           FilledButton(
-            onPressed: () => Navigator.pop(context, controller.text),
+            onPressed: () => Navigator.pop(dialogContext, draft),
             child: const Text('Save'),
           ),
         ],
       ),
     );
 
-    controller.dispose();
     if (result == null || !context.mounted) return;
 
     try {
