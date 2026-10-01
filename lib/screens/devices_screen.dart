@@ -22,8 +22,14 @@ class _DevicesScreenState extends State<DevicesScreen> {
     final controller = AppScope.of(context);
     final all = controller.devices;
     final online = all.where((d) => d.online && !d.blocked).toList();
+    final offline = all.where((d) => !d.online && !d.blocked).toList();
     final blocked = all.where((d) => d.blocked).toList();
-    final visible = switch (filter) { 1 => online, 2 => blocked, _ => all };
+    final visible = switch (filter) {
+      1 => online,
+      2 => offline,
+      3 => blocked,
+      _ => all,
+    };
 
     return SafeArea(
       child: Column(
@@ -49,7 +55,8 @@ class _DevicesScreenState extends State<DevicesScreen> {
               ),
             ),
           ),
-          Padding(
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 18),
             child: Row(
               children: [
@@ -66,9 +73,15 @@ class _DevicesScreenState extends State<DevicesScreen> {
                 ),
                 const SizedBox(width: 8),
                 _FilterChip(
-                  label: 'Blocked ${blocked.length}',
+                  label: 'Offline ${offline.length}',
                   selected: filter == 2,
                   onTap: () => setState(() => filter = 2),
+                ),
+                const SizedBox(width: 8),
+                _FilterChip(
+                  label: 'Blocked ${blocked.length}',
+                  selected: filter == 3,
+                  onTap: () => setState(() => filter = 3),
                 ),
               ],
             ),
@@ -88,7 +101,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
                   ),
                 ),
                 child: Text(
-                  'Connected devices are live. Router-side blocking stays hidden until the MTN firmware exposes a verifiable deny list.',
+                  'Online devices are live from the router. Offline devices are remembered locally with their last-seen time. Router-side blocking stays hidden until the MTN firmware exposes a verifiable deny list.',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: FlyxColors.muted,
                       ),
@@ -320,14 +333,20 @@ class _EmptyDevices extends StatelessWidget {
             ),
             const SizedBox(height: 14),
             Text(
-              filter == 2 ? 'No blocked devices' : 'No devices found',
+              switch (filter) {
+                2 => 'No offline devices',
+                3 => 'No blocked devices',
+                _ => 'No devices found',
+              },
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 7),
             Text(
-              filter == 2
-                  ? 'Blocked devices will stay visible here once router-side blocking is verified.'
-                  : 'Connect a device to FlyX and it will appear here.',
+              switch (filter) {
+                2 => 'Devices you have seen before will appear here after they leave the network.',
+                3 => 'Blocked devices will stay visible here once router-side blocking is verified.',
+                _ => 'Connect a device to FlyX and it will appear here.',
+              },
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: FlyxColors.muted,
