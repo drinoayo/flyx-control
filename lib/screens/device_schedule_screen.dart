@@ -140,7 +140,7 @@ class DeviceScheduleScreen extends StatelessWidget {
                               child: Text(
                                 active
                                     ? 'This device is inside its scheduled blocked window. Access should recover automatically after the window ends.'
-                                    : 'During enabled windows, the router blocks this device's access. The router's association list may still show the device, so FlyX Control does not treat disappearance from that list as proof of enforcement.',
+                                    : "During enabled windows, the router blocks this device's access. The router's association list may still show the device, so FlyX Control does not treat disappearance from that list as proof of enforcement.",
                                 style: Theme.of(context)
                                     .textTheme
                                     .bodySmall
