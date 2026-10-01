@@ -52,8 +52,6 @@ class _ConnectRouterScreenState extends State<ConnectRouterScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: FlyxColors.ink,
-        surfaceTintColor: Colors.transparent,
         title: const Text('Connect to FlyX'),
       ),
       body: ListView(
