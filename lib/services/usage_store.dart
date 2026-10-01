@@ -333,7 +333,7 @@ class UsageStore {
         : (connectedMs / observedMs) * 100.0;
 
     return ObservedReliability(
-      uptimePercent: uptime.clamp(0.0, 100.0),
+      uptimePercent: uptime.clamp(0.0, 100.0).toDouble(),
       outages: outages,
       observedDuration: Duration(milliseconds: observedMs),
     );
