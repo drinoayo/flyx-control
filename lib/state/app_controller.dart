@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../models/models.dart';
 import '../repositories/router_repository.dart';
+import '../services/widget_sync_service.dart';
 
 class AppController extends ChangeNotifier {
   AppController({required this.repository});
@@ -14,6 +15,8 @@ class AppController extends ChangeNotifier {
   bool busy = false;
   bool _refreshing = false;
   int _pollTick = 0;
+  int _messageCount = 0;
+  DateTime? _lastWidgetSyncAt;
   String? error;
   NetworkSnapshot? network;
   List<FlyxDevice> devices = const [];
@@ -41,11 +44,13 @@ class AppController extends ChangeNotifier {
     try {
       final fetchDevices = _pollTick % 3 == 0;
       final fetchHistory = _pollTick % 15 == 0;
+      final fetchMessages = capabilities.sms && _pollTick % 15 == 0;
 
       final futures = <Future<dynamic>>[
         repository.fetchNetwork(),
         if (fetchDevices) repository.fetchDevices(),
         if (fetchHistory) repository.fetchWeeklyUsage(),
+        if (fetchMessages) repository.fetchSmsInbox(),
       ];
       final results = await Future.wait<dynamic>(futures);
 
@@ -57,7 +62,11 @@ class AppController extends ChangeNotifier {
       if (fetchHistory) {
         weeklyUsage = results[index++] as List<UsagePoint>;
       }
+      if (fetchMessages) {
+        _messageCount = (results[index++] as RouterSmsPage).total;
+      }
       error = null;
+      await _syncWidgets();
     } catch (e) {
       error = e.toString();
     } finally {
@@ -72,6 +81,8 @@ class AppController extends ChangeNotifier {
     devices = const [];
     weeklyUsage = const [];
     capabilities = const RouterCapabilities();
+    _messageCount = 0;
+    _lastWidgetSyncAt = null;
     _pollTick = 0;
     await refresh();
     _startPolling();
@@ -98,7 +109,17 @@ class AppController extends ChangeNotifier {
       devices = results[1] as List<FlyxDevice>;
       weeklyUsage = results[2] as List<UsagePoint>;
       capabilities = results[3] as RouterCapabilities;
+      if (capabilities.sms) {
+        try {
+          _messageCount = (await repository.fetchSmsInbox()).total;
+        } catch (_) {
+          // Keep the last known count if SMS is temporarily unavailable.
+        }
+      } else {
+        _messageCount = 0;
+      }
       error = null;
+      await _syncWidgets(force: true);
     } catch (e) {
       error = e.toString();
     } finally {
@@ -106,6 +127,25 @@ class AppController extends ChangeNotifier {
       _refreshing = false;
       notifyListeners();
     }
+  }
+
+  Future<void> _syncWidgets({bool force = false}) async {
+    final snapshot = network;
+    if (snapshot == null) return;
+
+    final now = DateTime.now();
+    if (!force &&
+        _lastWidgetSyncAt != null &&
+        now.difference(_lastWidgetSyncAt!) < const Duration(seconds: 10)) {
+      return;
+    }
+
+    _lastWidgetSyncAt = now;
+    await WidgetSyncService.sync(
+      network: snapshot,
+      devices: devices,
+      messageCount: _messageCount,
+    );
   }
 
   FlyxDevice? deviceById(String id) {
@@ -131,8 +171,16 @@ class AppController extends ChangeNotifier {
     return _runAction(() => repository.markSmsRead(index));
   }
 
-  Future<void> deleteSms(List<int> indexes) {
-    return _runAction(() => repository.deleteSms(indexes));
+  Future<void> deleteSms(List<int> indexes) async {
+    await _runAction(() => repository.deleteSms(indexes));
+    if (capabilities.sms) {
+      try {
+        _messageCount = (await repository.fetchSmsInbox()).total;
+        await _syncWidgets(force: true);
+      } catch (_) {
+        // The inbox screen will surface any real SMS error to the user.
+      }
+    }
   }
 
   Future<UssdResult> sendUssd(String code) {
