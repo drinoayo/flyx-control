@@ -80,7 +80,7 @@ class DeviceDetailScreen extends StatelessWidget {
                   child: Text(
                     'Tracked online today: ${formatDuration(device.totalOnlineToday)}',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: FlyxColors.muted,
+                          color: FlyxColors.mutedFor(context),
                         ),
                   ),
                 ),
@@ -115,7 +115,7 @@ class DeviceDetailScreen extends StatelessWidget {
                     child: Text(
                       'Link rate describes the Wi-Fi connection between this device and FlyX. It is not the device’s current internet speed.',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: FlyxColors.muted,
+                            color: FlyxColors.mutedFor(context),
                           ),
                     ),
                   ),
@@ -144,7 +144,7 @@ class DeviceDetailScreen extends StatelessWidget {
                     child: Text(
                       'Only periods observed by FlyX Control are shown. Monitoring gaps are not reconstructed.',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: FlyxColors.muted,
+                            color: FlyxColors.mutedFor(context),
                           ),
                     ),
                   ),
@@ -192,16 +192,16 @@ class DeviceDetailScreen extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.query_stats_rounded,
-                    color: FlyxColors.yellow,
+                    color: FlyxColors.accentFor(context),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       'FlyX exposes this device and its Wi-Fi association, but we have not yet verified per-device byte counters on your MTN firmware. FlyX Control will not label Wi-Fi link speed as data usage.',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: FlyxColors.muted,
+                            color: FlyxColors.mutedFor(context),
                           ),
                     ),
                   ),
@@ -229,7 +229,7 @@ class DeviceDetailScreen extends StatelessWidget {
                   device.parentControlActive
                       ? Icons.wifi_off_rounded
                       : Icons.schedule_rounded,
-                  color: canSchedule ? FlyxColors.yellow : FlyxColors.muted,
+                  color: canSchedule ? FlyxColors.accentFor(context) : FlyxColors.mutedFor(context),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -256,7 +256,7 @@ class DeviceDetailScreen extends StatelessWidget {
                                     : 'Manage days, hours, and whether this rule is enabled.'
                             : 'FlyX Control only enables schedules when the router exposes a readable Parent Control rule list.',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: FlyxColors.muted,
+                              color: FlyxColors.mutedFor(context),
                             ),
                       ),
                     ],
@@ -264,9 +264,9 @@ class DeviceDetailScreen extends StatelessWidget {
                 ),
                 if (canSchedule) ...[
                   const SizedBox(width: 8),
-                  const Icon(
+                  Icon(
                     Icons.chevron_right_rounded,
-                    color: FlyxColors.muted,
+                    color: FlyxColors.mutedFor(context),
                   ),
                 ],
               ],
@@ -294,7 +294,7 @@ class DeviceDetailScreen extends StatelessWidget {
                       ? 'When the quota is reached, FlyX Control can pause this device automatically.'
                       : 'A reliable quota needs both per-device traffic accounting and a verified router-side block action. We have not enabled either prematurely.',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: FlyxColors.muted,
+                        color: FlyxColors.mutedFor(context),
                       ),
                 ),
                 if (hasTraffic && canBlock) ...[
@@ -332,7 +332,7 @@ class DeviceDetailScreen extends StatelessWidget {
                 : Text(
                     'Per-device internet throughput is not available yet. The Network screen can still calculate the FlyX connection’s total live download and upload speed from the router’s WAN byte counters.',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: FlyxColors.muted,
+                          color: FlyxColors.mutedFor(context),
                         ),
                   ),
           ),
@@ -388,7 +388,7 @@ class DeviceDetailScreen extends StatelessWidget {
                     )
                   : OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: FlyxColors.danger,
+                        foregroundColor: FlyxColors.dangerFor(context),
                         side: const BorderSide(color: Color(0x55FF6B6B)),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
@@ -403,9 +403,9 @@ class DeviceDetailScreen extends StatelessWidget {
             SurfaceCard(
               child: Row(
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.shield_outlined,
-                    color: FlyxColors.muted,
+                    color: FlyxColors.mutedFor(context),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -414,7 +414,7 @@ class DeviceDetailScreen extends StatelessWidget {
                           ? 'Instant Block is available for devices currently identified on FlyX Wi-Fi. This device is not currently associated with a Wi-Fi band.'
                           : 'Block / Unblock is unavailable because the router’s Wi-Fi deny-list path is not available.',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: FlyxColors.muted,
+                            color: FlyxColors.mutedFor(context),
                           ),
                     ),
                   ),
@@ -426,7 +426,7 @@ class DeviceDetailScreen extends StatelessWidget {
             const SizedBox(height: 18),
             OutlinedButton.icon(
               style: OutlinedButton.styleFrom(
-                foregroundColor: FlyxColors.muted,
+                foregroundColor: FlyxColors.mutedFor(context),
                 side: const BorderSide(color: Color(0x334E5968)),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
@@ -565,7 +565,7 @@ class DeviceDetailScreen extends StatelessWidget {
             Text(
               'Stored only in FlyX Control. Leave it blank to use the router hostname.',
               style: Theme.of(dialogContext).textTheme.bodySmall?.copyWith(
-                    color: FlyxColors.muted,
+                    color: FlyxColors.mutedFor(dialogContext),
                   ),
             ),
           ],
@@ -630,7 +630,7 @@ class DeviceDetailScreen extends StatelessWidget {
               Text(
                 'Set a quota for this device. Leave the amount blank to remove the limit.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: FlyxColors.muted,
+                      color: FlyxColors.mutedFor(context),
                     ),
               ),
               const SizedBox(height: 18),
@@ -717,7 +717,7 @@ class _SessionHistoryRow extends StatelessWidget {
       children: [
         Icon(
           session.isCurrent ? Icons.wifi_rounded : Icons.history_rounded,
-          color: session.isCurrent ? FlyxColors.success : FlyxColors.muted,
+          color: session.isCurrent ? FlyxColors.successFor(context) : FlyxColors.mutedFor(context),
           size: 20,
         ),
         const SizedBox(width: 12),
@@ -730,7 +730,7 @@ class _SessionHistoryRow extends StatelessWidget {
               Text(
                 'Observed ${formatDuration(duration)}',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: FlyxColors.muted,
+                      color: FlyxColors.mutedFor(context),
                     ),
               ),
             ],
@@ -877,7 +877,7 @@ class _QuotaProgress extends StatelessWidget {
         child: Text(
           'No quota set',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: FlyxColors.muted,
+                color: FlyxColors.mutedFor(context),
               ),
         ),
       );
@@ -904,7 +904,7 @@ class _QuotaProgress extends StatelessWidget {
             Text(
               '${formatBytes(used)} / ${formatBytes(limit)}',
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: FlyxColors.muted,
+                    color: FlyxColors.mutedFor(context),
                   ),
             ),
           ],
@@ -917,7 +917,7 @@ class _QuotaProgress extends StatelessWidget {
             minHeight: 9,
             backgroundColor: Theme.of(context).colorScheme.outlineVariant,
             valueColor: AlwaysStoppedAnimation(
-              fraction >= .9 ? FlyxColors.danger : FlyxColors.yellow,
+              fraction >= .9 ? FlyxColors.dangerFor(context) : FlyxColors.accentFor(context),
             ),
           ),
         ),
@@ -939,7 +939,7 @@ class _InfoRow extends StatelessWidget {
           child: Text(
             label,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: FlyxColors.muted,
+                  color: FlyxColors.mutedFor(context),
                 ),
           ),
         ),
