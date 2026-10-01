@@ -256,3 +256,14 @@ With the existing Pixel Parent Control rule switched from Enable to Disable in t
 This confirms that disabling a Parent Control rule is non-destructive: the schedule persists and can be re-enabled later. FlyX Control can therefore model schedule enable/disable separately from rule deletion.
 
 The same report also identified router firmware 4.2.3 with a newer 2026-07-18 build and a short router uptime, whereas earlier discovery reports identified firmware 4.1.34. Treat 4.2.3 as the current tested baseline, but do not infer the cause of the firmware/reboot change from discovery alone.
+
+
+## Eleventh authenticated discovery: rule edit semantics
+
+With the existing Pixel Parent Control rule left disabled, the stock MTN UI was used to edit only the schedule from Wednesday 22:00-23:00 to Thursday 04:00-05:00.
+
+The subsequent cmd 385 readback preserved enableRule=false and returned startTime=04:00, endTime=05:00 and scheduleDays=4.
+
+This confirms that Parent Control rule edits are persisted independently from the enable/disable state. Thursday is represented as weekday value 4 on this firmware.
+
+The final stock-UI lifecycle test is deletion: remove the disabled Pixel rule, then confirm cmd 385 no longer returns that rule and that no unrelated device state is changed.
