@@ -16,15 +16,17 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   int index = 0;
 
-  final pages = const [
-    HomeScreen(),
-    NetworkScreen(),
-    DevicesScreen(),
-    MoreScreen(),
-  ];
-
   @override
   Widget build(BuildContext context) {
+    final pages = [
+      HomeScreen(
+        onViewAllDevices: () => setState(() => index = 2),
+      ),
+      const NetworkScreen(),
+      const DevicesScreen(),
+      const MoreScreen(),
+    ];
+
     return Scaffold(
       body: IndexedStack(index: index, children: pages),
       bottomNavigationBar: Container(
