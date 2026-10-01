@@ -49,7 +49,7 @@ class _NetworkScreenState extends State<NetworkScreen> {
                           Text('${n.rsrp}', style: Theme.of(context).textTheme.displaySmall?.copyWith(fontSize: 48)),
                           Padding(
                             padding: const EdgeInsets.only(bottom: 7, left: 5),
-                            child: Text('dBm RSRP', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: FlyxColors.muted)),
+                            child: Text('dBm RSRP', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: FlyxColors.mutedFor(context))),
                           ),
                           const Spacer(),
                           Text(n.gradeLabel, style: Theme.of(context).textTheme.titleMedium?.copyWith(color: n.gradeColor)),
@@ -63,7 +63,7 @@ class _NetworkScreenState extends State<NetworkScreen> {
                         style: Theme.of(context)
                             .textTheme
                             .bodyMedium
-                            ?.copyWith(color: FlyxColors.muted),
+                            ?.copyWith(color: FlyxColors.mutedFor(context)),
                       ),
                     ],
                   ),
@@ -148,7 +148,7 @@ class _NetworkScreenState extends State<NetworkScreen> {
                         child: Text(
                           'Monthly totals come from FlyX. Daily history is derived locally from verified WAN counters.',
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: FlyxColors.muted,
+                                color: FlyxColors.mutedFor(context),
                               ),
                         ),
                       ),
@@ -167,7 +167,7 @@ class _NetworkScreenState extends State<NetworkScreen> {
                         icon: Icons.speed_rounded,
                         title: 'Latency',
                         value: n.latencyMs == 0 ? 'Collecting' : '${n.latencyMs} ms',
-                        valueColor: n.latencyMs == 0 ? FlyxColors.muted : FlyxColors.success,
+                        valueColor: n.latencyMs == 0 ? FlyxColors.mutedFor(context) : FlyxColors.successFor(context),
                       ),
                       const Divider(height: 24, indent: 46),
                       _HealthRow(
@@ -175,10 +175,10 @@ class _NetworkScreenState extends State<NetworkScreen> {
                         title: 'Packet loss',
                         value: n.packetLossPercent == 0 ? 'Collecting' : '${n.packetLossPercent.toStringAsFixed(1)}%',
                         valueColor: n.packetLossPercent == 0
-                            ? FlyxColors.muted
+                            ? FlyxColors.mutedFor(context)
                             : n.packetLossPercent <= .5
-                                ? FlyxColors.success
-                                : FlyxColors.warning,
+                                ? FlyxColors.successFor(context)
+                                : FlyxColors.warningFor(context),
                       ),
                       const Divider(height: 24, indent: 46),
                       _HealthRow(
@@ -197,8 +197,8 @@ class _NetworkScreenState extends State<NetworkScreen> {
                             : '${n.internetUptimePercent.toStringAsFixed(1)}%',
                         valueColor:
                             n.internetObservationDuration == Duration.zero
-                                ? FlyxColors.muted
-                                : FlyxColors.success,
+                                ? FlyxColors.mutedFor(context)
+                                : FlyxColors.successFor(context),
                       ),
                       const Divider(height: 24, indent: 46),
                       _HealthRow(
@@ -209,10 +209,10 @@ class _NetworkScreenState extends State<NetworkScreen> {
                             : '${n.outagesToday}',
                         valueColor:
                             n.internetObservationDuration == Duration.zero
-                                ? FlyxColors.muted
+                                ? FlyxColors.mutedFor(context)
                                 : n.outagesToday == 0
-                                    ? FlyxColors.success
-                                    : FlyxColors.warning,
+                                    ? FlyxColors.successFor(context)
+                                    : FlyxColors.warningFor(context),
                       ),
                       const Divider(height: 24, indent: 46),
                       _HealthRow(
@@ -241,7 +241,7 @@ class _NetworkScreenState extends State<NetworkScreen> {
                     child: Text(
                       'These are only outages FlyX Control continuously observed. Monitoring gaps are excluded.',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: FlyxColors.muted,
+                            color: FlyxColors.mutedFor(context),
                           ),
                     ),
                   ),
@@ -275,8 +275,8 @@ class _NetworkScreenState extends State<NetworkScreen> {
                       title: 'Temperature',
                       value: '${n.routerTemperatureC!.toStringAsFixed(0)} °C',
                       valueColor: n.routerTemperatureC! >= 70
-                          ? FlyxColors.warning
-                          : FlyxColors.success,
+                          ? FlyxColors.warningFor(context)
+                          : FlyxColors.successFor(context),
                     ),
                   if (n.routerTemperatureC != null &&
                       n.routerMemoryFreeBytes != null)
@@ -342,7 +342,7 @@ class _OutageRow extends StatelessWidget {
       children: [
         Icon(
           restored == null ? Icons.cloud_off_rounded : Icons.history_rounded,
-          color: restored == null ? FlyxColors.warning : FlyxColors.muted,
+          color: restored == null ? FlyxColors.warningFor(context) : FlyxColors.mutedFor(context),
           size: 20,
         ),
         const SizedBox(width: 12),
@@ -358,7 +358,7 @@ class _OutageRow extends StatelessWidget {
               Text(
                 subtitle,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: FlyxColors.muted,
+                      color: FlyxColors.mutedFor(context),
                     ),
               ),
             ],
@@ -395,7 +395,7 @@ class _HealthRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, color: FlyxColors.yellow, size: 22),
+        Icon(icon, color: FlyxColors.accentFor(context), size: 22),
         const SizedBox(width: 14),
         Expanded(child: Text(title, style: Theme.of(context).textTheme.titleMedium)),
         Text(value, style: Theme.of(context).textTheme.labelLarge?.copyWith(color: valueColor)),
@@ -427,7 +427,7 @@ class _ControlRow extends StatelessWidget {
         children: [
           Icon(
             icon,
-            color: enabled ? FlyxColors.yellow : FlyxColors.muted,
+            color: enabled ? FlyxColors.accentFor(context) : FlyxColors.mutedFor(context),
             size: 22,
           ),
           const SizedBox(width: 14),
@@ -440,16 +440,16 @@ class _ControlRow extends StatelessWidget {
                 Text(
                   subtitle,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: FlyxColors.muted,
+                        color: FlyxColors.mutedFor(context),
                       ),
                 ),
               ],
             ),
           ),
           if (onTap != null)
-            const Icon(
+            Icon(
               Icons.chevron_right_rounded,
-              color: FlyxColors.muted,
+              color: FlyxColors.mutedFor(context),
             ),
         ],
       ),
