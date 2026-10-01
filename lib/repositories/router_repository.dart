@@ -8,6 +8,11 @@ abstract class RouterRepository {
   Future<void> setBlocked(String deviceId, bool blocked);
   Future<void> setDeviceName(String deviceId, String name);
   Future<void> setDevicePolicy(String deviceId, DevicePolicy policy);
+  Future<void> setParentControlSchedule(
+    String deviceId,
+    ParentControlSchedule schedule,
+  );
+  Future<void> deleteParentControlSchedule(String deviceId);
   Future<void> reboot();
 }
 
