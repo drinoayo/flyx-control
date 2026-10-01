@@ -130,6 +130,7 @@ class FlyxDevice {
     required this.totalOnlineToday,
     required this.lastSeen,
     required this.signalPercent,
+    this.firstSeen,
     this.wifiBand = '',
     this.wifiRssiDbm,
     this.wifiTxLinkMbps,
@@ -161,6 +162,7 @@ class FlyxDevice {
   final Duration totalOnlineToday;
   final DateTime lastSeen;
   final int signalPercent;
+  final DateTime? firstSeen;
 
   /// Association/link information from X17U Wi-Fi commands 224/225.
   final String wifiBand;
@@ -191,6 +193,7 @@ class FlyxDevice {
     Duration? totalOnlineToday,
     DateTime? lastSeen,
     int? signalPercent,
+    DateTime? firstSeen,
     String? wifiBand,
     int? wifiRssiDbm,
     double? wifiTxLinkMbps,
@@ -218,6 +221,7 @@ class FlyxDevice {
       totalOnlineToday: totalOnlineToday ?? this.totalOnlineToday,
       lastSeen: lastSeen ?? this.lastSeen,
       signalPercent: signalPercent ?? this.signalPercent,
+      firstSeen: firstSeen ?? this.firstSeen,
       wifiBand: wifiBand ?? this.wifiBand,
       wifiRssiDbm: wifiRssiDbm ?? this.wifiRssiDbm,
       wifiTxLinkMbps: wifiTxLinkMbps ?? this.wifiTxLinkMbps,
