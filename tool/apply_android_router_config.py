@@ -33,6 +33,11 @@ def main() -> int:
         insertion = "\n" + "\n".join(missing)
         text = text[: manifest_pos + 1] + insertion + text[manifest_pos + 1 :]
 
+    text = text.replace(
+        'android:label="flyx_control"',
+        'android:label="FlyX Control"',
+    )
+
     if 'android:usesCleartextTraffic="true"' not in text:
         text = text.replace(
             "<application",
