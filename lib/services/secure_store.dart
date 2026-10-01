@@ -28,5 +28,11 @@ class SecureRouterStore {
     );
   }
 
-  Future<void> clear() => _storage.deleteAll();
+  Future<void> clear() async {
+    await Future.wait([
+      _storage.delete(key: _hostKey),
+      _storage.delete(key: _userKey),
+      _storage.delete(key: _passwordKey),
+    ]);
+  }
 }
