@@ -181,6 +181,7 @@ class MockRouterRepository implements RouterRepository {
         signal: true,
         stationList: true,
         blocking: true,
+        scheduling: true,
         sms: true,
         ussd: true,
         wifiSettings: true,
@@ -214,6 +215,29 @@ class MockRouterRepository implements RouterRepository {
     final index = _devices.indexWhere((d) => d.id == deviceId);
     if (index == -1) return;
     _devices[index] = _devices[index].copyWith(policy: policy);
+  }
+
+  @override
+  Future<void> setParentControlSchedule(
+    String deviceId,
+    ParentControlSchedule schedule,
+  ) async {
+    final index = _devices.indexWhere((d) => d.id == deviceId);
+    if (index == -1) return;
+    _devices[index] = _devices[index].copyWith(
+      parentControlSchedule: schedule,
+      blocked: schedule.isActiveAt(DateTime.now()),
+    );
+  }
+
+  @override
+  Future<void> deleteParentControlSchedule(String deviceId) async {
+    final index = _devices.indexWhere((d) => d.id == deviceId);
+    if (index == -1) return;
+    _devices[index] = _devices[index].copyWith(
+      clearParentControlSchedule: true,
+      blocked: false,
+    );
   }
 
   @override
