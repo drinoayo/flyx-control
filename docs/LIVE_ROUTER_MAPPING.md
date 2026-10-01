@@ -267,3 +267,19 @@ The subsequent cmd 385 readback preserved enableRule=false and returned startTim
 This confirms that Parent Control rule edits are persisted independently from the enable/disable state. Thursday is represented as weekday value 4 on this firmware.
 
 The final stock-UI lifecycle test is deletion: remove the disabled Pixel rule, then confirm cmd 385 no longer returns that rule and that no unrelated device state is changed.
+
+
+## Twelfth authenticated discovery: last-rule deletion did not clear state
+
+After attempting to delete the only remaining disabled Pixel Parent Control rule through the stock MTN UI, cmd 385 still returned the same rule unchanged:
+
+- enableRule=false
+- startTime=04:00
+- endTime=05:00
+- scheduleDays=4
+
+This means deletion of the final rule is not yet verified. The firmware may ignore an empty datas array, the stock UI may fail to persist deletion of the last item, or the rule may remain in backend state even if the UI hides it.
+
+Do not implement app-side deletion yet.
+
+The next safe diagnostic is to check whether the stock UI still displays the rule after refresh. If it does not, test with two disabled rules: create a second disabled rule on a non-critical device, then delete only one rule so cmd 385 is written with a non-empty remaining datas array. That distinguishes a general delete failure from a firmware quirk specific to clearing the last rule.
