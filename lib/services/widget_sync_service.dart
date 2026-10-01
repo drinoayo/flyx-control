@@ -33,7 +33,6 @@ class WidgetSyncService {
         'messages': '$messageCount',
         'today': formatBytes(network.todayBytes),
         'month': formatBytes(network.monthBytes),
-        'updatedAt': DateTime.now().millisecondsSinceEpoch,
       });
     } on MissingPluginException {
       // The native bridge only exists on Android builds.
