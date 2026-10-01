@@ -217,7 +217,7 @@ class _DeviceCard extends StatelessWidget {
                         ),
                         if (device.blocked) ...[
                           const SizedBox(width: 8),
-                          const Icon(
+                          Icon(
                             Icons.block_rounded,
                             size: 15,
                             color: FlyxColors.dangerFor(context),
