@@ -476,3 +476,21 @@ Conclusion:
 - per-device daily/weekly/monthly usage cannot be derived honestly from these fields.
 
 The next discovery step is to identify the stock firmware's Speed Limit/QoS command path and any hidden per-client accounting table before implementing quotas or true live Internet speed.
+
+
+## Stock UI traffic/speed-limit search: no per-device control path found
+
+UI inspector v0.7 scanned the stock MTN frontend, its routed chunks, and API wrapper names for speed, traffic, quota, usage and QoS paths.
+
+Findings:
+
+- the firewall route table contains filter rules, port forwarding, URL filtering, DMZ, UPnP, IP/MAC binding, DDOS and access control, but no Speed Limit route;
+- app.js still contains generic vendor translation strings such as Speed Limit, LAN Speed Limit, WAN Speed Limit, downlinkSpeedLimit and uplinkSpeedLimit;
+- no fetched routed chunk ties those strings to a usable per-device speed-limit implementation;
+- the only traffic-like API wrappers discovered are getFlow/setFlow on cmd 337 and getFlowN/setFlowN on cmd 355;
+- cmd 337 is already confirmed as whole-router monthly flow/quota state;
+- cmd 355 has returned no usable per-device data on the tested firmware.
+
+Conclusion: the stock UI bundle carries dormant/generic speed-limit labels, but this MTN firmware does not expose a routed per-device Speed Limit/QoS control path or a verified per-device byte-accounting API. FlyX Control must not present Wi-Fi txrate/rxrate as Internet throughput or fabricate per-device data usage from them.
+
+The same inspection also identified getDeviceTime on cmd 11. That is a separate useful read path for aligning Parent Control status with the router's own clock once its response shape is verified.
