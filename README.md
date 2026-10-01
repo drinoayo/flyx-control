@@ -19,7 +19,8 @@ FlyX Control is being built as a proper consumer network-control app rather than
 - Real WAN byte counters, router uptime, monthly download/upload totals, CPU usage, temperature, memory and firmware version.
 - SQLite-backed local daily/weekly usage history derived from verified cumulative WAN counters.
 - Safe read-only X17U discovery utilities and a stock-web-UI inspector.
-- Verified Parent Control schedules for connected devices: create, edit, enable/disable and delete, with readback verification and rollback.
+- Verified Parent Control schedules for connected devices: create, edit, enable/disable and delete, with minute-level enforcement, readback verification and rollback.
+- Persistent local friendly names plus first-seen/last-seen device history keyed by MAC address.
 
 ## Confirmed X17U API mapping
 
@@ -79,7 +80,7 @@ Do not publish unredacted router reports containing device identifiers.
 3. Map Wi-Fi settings.
 4. Map SMS and USSD.
 5. Verify reboot, network-mode and advanced radio controls.
-6. Add persistent friendly device names and richer local device history.
+6. Expand local device history with session summaries and optional cleanup/forget controls.
 
 
 ## Android development setup
