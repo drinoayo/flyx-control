@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../models/models.dart';
-import '../repositories/routerrepository.dart';
+import '../repositories/router_repository.dart';
 
 class AppController extends ChangeNotifier {
   AppController({required this.repository});
