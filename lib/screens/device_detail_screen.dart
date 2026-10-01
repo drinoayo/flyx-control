@@ -35,7 +35,11 @@ class DeviceDetailScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(18, 10, 18, 32),
         children: [
-          _Header(device: device, hasTraffic: hasTraffic),
+          _Header(
+            device: device,
+            hasTraffic: hasTraffic,
+            onRename: () => _renameDevice(context, device),
+          ),
           const SizedBox(height: 24),
 
           const SectionTitle(title: 'Connection'),
@@ -301,10 +305,27 @@ class DeviceDetailScreen extends StatelessWidget {
               children: [
                 _InfoRow(label: 'Hostname', value: device.hostname),
                 const Divider(height: 24),
-                _InfoRow(label: 'IP address', value: device.ip),
+                _InfoRow(
+                  label: device.online ? 'IP address' : 'Last IP address',
+                  value: device.ip,
+                ),
                 const Divider(height: 24),
                 _InfoRow(label: 'MAC address', value: device.mac),
-                if (device.dhcpLeaseExpires != null) ...[
+                if (device.firstSeen != null) ...[
+                  const Divider(height: 24),
+                  _InfoRow(
+                    label: 'First observed',
+                    value: _formatDate(device.firstSeen!),
+                  ),
+                ],
+                if (!device.online) ...[
+                  const Divider(height: 24),
+                  _InfoRow(
+                    label: 'Last observed',
+                    value: _formatDate(device.lastSeen),
+                  ),
+                ],
+                if (device.dhcpLeaseExpires != null && device.online) ...[
                   const Divider(height: 24),
                   _InfoRow(
                     label: 'DHCP lease until',
@@ -421,6 +442,67 @@ class DeviceDetailScreen extends StatelessWidget {
     }
   }
 
+  Future<void> _renameDevice(
+    BuildContext context,
+    FlyxDevice device,
+  ) async {
+    final controller = TextEditingController(
+      text: device.name == device.hostname ? '' : device.name,
+    );
+
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Name this device'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: controller,
+              autofocus: true,
+              maxLength: 48,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: InputDecoration(
+                labelText: 'Friendly name',
+                hintText: device.hostname,
+              ),
+            ),
+            Text(
+              'Stored only in FlyX Control. Leave it blank to use the router hostname.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: FlyxColors.muted,
+                  ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, controller.text),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    controller.dispose();
+    if (result == null || !context.mounted) return;
+
+    try {
+      await AppScope.of(context).setDeviceName(device.id, result);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$e')),
+        );
+      }
+    }
+  }
+
   Future<void> _setLimit(
     BuildContext context,
     FlyxDevice device,
@@ -528,10 +610,12 @@ class _Header extends StatelessWidget {
   const _Header({
     required this.device,
     required this.hasTraffic,
+    required this.onRename,
   });
 
   final FlyxDevice device;
   final bool hasTraffic;
+  final VoidCallback onRename;
 
   @override
   Widget build(BuildContext context) {
@@ -551,9 +635,23 @@ class _Header extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      device.name,
-                      style: Theme.of(context).textTheme.titleLarge,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            device.name,
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'Rename device',
+                          onPressed: onRename,
+                          icon: const Icon(
+                            Icons.edit_outlined,
+                            size: 19,
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 5),
                     Builder(
