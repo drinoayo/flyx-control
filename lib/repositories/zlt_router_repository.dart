@@ -1550,6 +1550,60 @@ class ZltRouterRepository implements RouterRepository {
   }
 
   @override
+  Future<RouterNetworkModeSnapshot> fetchNetworkMode() async {
+    await _ensureLogin();
+    final raw = await client.command(218, authenticated: true);
+
+    const hidden = {
+      'success',
+      'cmd',
+      'method',
+      'sessionId',
+      'token',
+      'message',
+    };
+    final fields = <String, String>{
+      for (final entry in raw.entries)
+        if (!hidden.contains(entry.key))
+          entry.key: _text(entry.value),
+    };
+
+    const preferredKeys = [
+      'networkMode',
+      'network_mode',
+      'networkModeType',
+      'netMode',
+      'net_select',
+      'net_select_mode',
+      'current_network_mode',
+      'mode',
+      'network_type_str',
+      'network_type',
+    ];
+
+    var display = '';
+    for (final key in preferredKeys) {
+      final value = fields[key]?.trim() ?? '';
+      if (value.isNotEmpty) {
+        display = value;
+        break;
+      }
+    }
+    if (display.isEmpty && fields.isNotEmpty) {
+      final first = fields.entries.firstWhere(
+        (entry) => entry.value.isNotEmpty,
+        orElse: () => const MapEntry('', ''),
+      );
+      if (first.value.isNotEmpty) display = first.value;
+    }
+
+    return RouterNetworkModeSnapshot(
+      fields: fields,
+      displayMode: display.isEmpty ? 'Unknown' : display,
+    );
+  }
+
+  @override
   Future<RouterCapabilities> capabilities() async {
     final report = await _ensureDiscovery();
     return RouterCapabilities(
@@ -1560,10 +1614,10 @@ class ZltRouterRepository implements RouterRepository {
       sms: report.supportsCommand(12) && report.supportsCommand(16),
       ussd: report.supportsCommand(207),
       wifiSettings: report.supportsCommand(2) && report.supportsCommand(211),
-      reboot: false,
+      reboot: true,
       perDeviceTraffic: false,
       qos: false,
-      networkMode: false,
+      networkMode: report.supportsCommand(218),
       discoveredActions:
           report.verifiedCommands.map((cmd) => 'cmd:$cmd').toList(),
     );
@@ -1992,8 +2046,15 @@ class ZltRouterRepository implements RouterRepository {
 
   @override
   Future<void> reboot() async {
-    throw RouterFeatureUnavailable(
-      'Reboot is intentionally disabled until its X17U write command is verified on this firmware.',
+    await _ensureLogin();
+    // The stock MTN X17U power page maps reboot directly to POST cmd 6.
+    // Do not try to read back immediately: the router is expected to drop
+    // the LAN session while it restarts.
+    await client.writeExact(
+      6,
+      const {},
+      validateMessage: false,
+      receiveTimeout: const Duration(seconds: 5),
     );
   }
 
