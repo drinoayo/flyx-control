@@ -752,6 +752,9 @@ class ZltRouterRepository implements RouterRepository {
     final credentialChanged =
         _text(updated['ssid']) != _text(original['ssid']) ||
             _text(updated['key']) != _text(original['key']);
+    final localBand = credentialChanged ? await _localWifiBand() : null;
+    final reconnectExpected =
+        credentialChanged && (localBand == null || localBand == band);
 
     Object? primaryError;
     try {
@@ -767,7 +770,7 @@ class ZltRouterRepository implements RouterRepository {
       // the phone from this Wi-Fi. Do not pretend a readback is possible in
       // that case; the successful stock write response is the last reliable
       // point before the client may disconnect.
-      if (credentialChanged) {
+      if (reconnectExpected) {
         return const WifiUpdateResult(reconnectExpected: true);
       }
 
@@ -776,7 +779,11 @@ class ZltRouterRepository implements RouterRepository {
         authenticated: true,
         fields: const {'subcmd': 0},
       );
-      if (!_wifiPrimaryMatches(readback, updated, checkKey: false)) {
+      if (!_wifiPrimaryMatches(
+        readback,
+        updated,
+        checkKey: password != null && password.isNotEmpty,
+      )) {
         throw RouterFeatureUnavailable(
           'The router did not confirm the Wi-Fi change.',
         );
@@ -813,6 +820,30 @@ class ZltRouterRepository implements RouterRepository {
     throw RouterFeatureUnavailable(
       'The Wi-Fi change was not saved. The previous settings were restored. $primaryError',
     );
+  }
+
+  Future<WifiBand?> _localWifiBand() async {
+    final localIp = await _localLanIp();
+    if (localIp == null || localIp.isEmpty) return null;
+
+    final responses = await Future.wait<Map<String, dynamic>>([
+      _safeCommand(224),
+      _safeCommand(225),
+    ]);
+    final candidates = <(WifiBand, dynamic)>[
+      (WifiBand.twoFourGhz, responses[0]['wlan24g_wifi_info']),
+      (WifiBand.fiveGhz, responses[1]['wlan5g_wifi_info']),
+    ];
+
+    for (final candidate in candidates) {
+      final rows = candidate.$2;
+      if (rows is! List) continue;
+      for (final row in rows) {
+        if (row is! Map) continue;
+        if (_text(row['ip']) == localIp) return candidate.$1;
+      }
+    }
+    return null;
   }
 
   Map<String, dynamic> _wifiPrimaryForm(Map<String, dynamic> raw) {
