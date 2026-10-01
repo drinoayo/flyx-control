@@ -95,10 +95,10 @@ class _DevicesScreenState extends State<DevicesScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: FlyxColors.yellow.withValues(alpha: .07),
+                color: FlyxColors.accentFor(context).withValues(alpha: .07),
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                  color: FlyxColors.yellow.withValues(alpha: .16),
+                  color: FlyxColors.accentFor(context).withValues(alpha: .16),
                 ),
               ),
               child: Text(
@@ -106,7 +106,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
                     ? 'Online devices are live from the router. Offline devices are remembered locally. Instant Block / Unblock uses the router’s verified Wi-Fi deny list on both bands.'
                     : 'Online devices are live from the router. Offline devices are remembered locally with their last-seen time.',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: FlyxColors.muted,
+                      color: FlyxColors.mutedFor(context),
                     ),
               ),
             ),
@@ -220,7 +220,7 @@ class _DeviceCard extends StatelessWidget {
                           const Icon(
                             Icons.block_rounded,
                             size: 15,
-                            color: FlyxColors.danger,
+                            color: FlyxColors.dangerFor(context),
                           ),
                         ],
                       ],
@@ -234,16 +234,16 @@ class _DeviceCard extends StatelessWidget {
                               : 'Last seen ${_lastSeen(device.lastSeen)}',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             color: device.blocked
-                                ? FlyxColors.danger
-                                : FlyxColors.muted,
+                                ? FlyxColors.dangerFor(context)
+                                : FlyxColors.mutedFor(context),
                           ),
                     ),
                   ],
                 ),
               ),
-              const Icon(
+              Icon(
                 Icons.chevron_right_rounded,
-                color: FlyxColors.muted,
+                color: FlyxColors.mutedFor(context),
               ),
             ],
           ),
@@ -334,9 +334,9 @@ class _EmptyDevices extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
+            Icon(
               Icons.devices_other_rounded,
-              color: FlyxColors.muted,
+              color: FlyxColors.mutedFor(context),
               size: 42,
             ),
             const SizedBox(height: 14),
@@ -357,7 +357,7 @@ class _EmptyDevices extends StatelessWidget {
               },
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: FlyxColors.muted,
+                    color: FlyxColors.mutedFor(context),
                   ),
             ),
           ],
