@@ -127,8 +127,13 @@ def main() -> int:
         "This makes temporary Wi-Fi MAC-filter writes using only the dummy "
         f"MAC {DUMMY_MAC} and restores the original state. Type APPLY to continue: "
     )
-    if input(prompt) != "APPLY":
-        print("Cancelled.")
+    if args.json:
+        print(prompt, file=sys.stderr, end="", flush=True)
+        confirmation = input()
+    else:
+        confirmation = input(prompt)
+    if confirmation != "APPLY":
+        print("Cancelled.", file=sys.stderr if args.json else sys.stdout)
         return 2
 
     password = getpass.getpass("FlyX admin password (hidden; not saved): ")
