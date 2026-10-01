@@ -702,9 +702,11 @@ class ZltRouterRepository implements RouterRepository {
 
   dynamic _stableJson(dynamic value) {
     if (value is Map) {
-      final keys = value.keys.map((key) => '$key').toList()..sort();
+      final entries = value.entries.toList()
+        ..sort((a, b) => '${a.key}'.compareTo('${b.key}'));
       return {
-        for (final key in keys) key: _stableJson(value[key]),
+        for (final entry in entries)
+          '${entry.key}': _stableJson(entry.value),
       };
     }
     if (value is List) {
