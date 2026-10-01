@@ -147,6 +147,17 @@ class AppController extends ChangeNotifier {
     return repository.fetchNetworkMode();
   }
 
+  Future<void> setFlightMode(bool enabled) {
+    return _runAction(() => repository.setFlightMode(enabled));
+  }
+
+  Future<void> setMobileData(bool enabled) {
+    return _runAction(() => repository.setMobileData(enabled));
+  }
+
+  Future<void> setDataRoaming(bool enabled) {
+    return _runAction(() => repository.setDataRoaming(enabled));
+  }
 
   Future<WifiUpdateResult> updateWifiPrimary(
     WifiBand band, {
