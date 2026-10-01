@@ -416,7 +416,7 @@ class _ScheduleEditorState extends State<_ScheduleEditor> {
               ),
               const SizedBox(height: 7),
               Text(
-                'MTN's own interface only exposes whole hours. FlyX Control can submit exact minutes and verifies the router's readback before keeping the change.',
+                "MTN's own interface only exposes whole hours. FlyX Control can submit exact minutes and verifies the router's readback before keeping the change.",
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: FlyxColors.muted,
                     ),
