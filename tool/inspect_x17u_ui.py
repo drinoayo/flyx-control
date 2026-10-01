@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Read-only inspection of the X17U stock web UI.
 
-Version 0.6 is more tolerant of router front-ends that do not place ordinary
+Version 0.7 is more tolerant of router front-ends that do not place ordinary
 <script src="..."> tags on /. It follows same-origin HTML/iframe/meta-refresh
 references, discovers JS-like URLs from script/link/src/href attributes and
 quoted strings, and records small sanitized previews of entry documents.
@@ -57,6 +57,12 @@ PATTERNS = [
     r"ippro",
     r"downlinkSpeedLimit",
     r"uplinkSpeedLimit",
+    r"getSpeed",
+    r"setSpeed",
+    r"traffic",
+    r"quota",
+    r"usage",
+    r"qos",
     r"parentControl",
     r"kidDevices",
     r"kidManage",
@@ -105,6 +111,11 @@ CHUNK_CALL_RE = re.compile(
 CHUNK_HASH_RE = re.compile(
     r"""["'](chunk-[A-Za-z0-9_-]+)["']\s*:\s*["']([0-9a-fA-F]{6,32})["']"""
 )
+API_METHOD_RE = re.compile(
+    r"""(?P<name>[A-Za-z_$][A-Za-z0-9_$]*)\([^)]*\)\{""",
+)
+CMD_IN_BODY_RE = re.compile(r"""\bcmd\s*[:=]\s*(\d+)\b""")
+HTTP_METHOD_RE = re.compile(r"""\bmethod\s*[:=]\s*["'](GET|POST)["']""")
 TARGET_ROUTE_WORDS = (
     "mac",
     "filter",
@@ -131,7 +142,7 @@ def fetch_text(url: str, timeout: float = 8.0) -> dict[str, Any]:
     req = urllib.request.Request(
         url,
         headers={
-            "User-Agent": "FlyX-Control-UI-Inspector/0.6",
+            "User-Agent": "FlyX-Control-UI-Inspector/0.7",
             "Accept": "text/html,application/javascript,text/javascript,text/css,*/*",
             "Accept-Encoding": "identity",
         },
@@ -469,12 +480,46 @@ def main() -> int:
                     }
                 )
 
+    api_wrapper_candidates: list[dict[str, Any]] = []
+    if app_js_text:
+        interesting = re.compile(
+            r"(speed|flow|traffic|quota|usage|qos|rate|station|client|device|wireless|limit)",
+            re.IGNORECASE,
+        )
+        seen_wrappers: set[tuple[str, str]] = set()
+        for match in API_METHOD_RE.finditer(app_js_text):
+            name = match.group("name")
+            if not interesting.search(name):
+                continue
+            body = app_js_text[match.end():match.end() + 900]
+            cmd_match = CMD_IN_BODY_RE.search(body)
+            if not cmd_match:
+                continue
+            method_match = HTTP_METHOD_RE.search(body)
+            signature = (name, cmd_match.group(1))
+            if signature in seen_wrappers:
+                continue
+            seen_wrappers.add(signature)
+            api_wrapper_candidates.append(
+                {
+                    "name": name,
+                    "cmd": int(cmd_match.group(1)),
+                    "method": method_match.group(1) if method_match else None,
+                    "snippet": compact_snippet(
+                        app_js_text,
+                        match.start(),
+                        min(len(app_js_text), match.end() + 500),
+                        radius=120,
+                    ),
+                }
+            )
+
     report = {
         "host": host,
         "read_only": True,
         "login_attempted": False,
         "router_commands_sent": False,
-        "version": "0.6",
+        "version": "0.7",
         "urls_fetched": len(seen_urls),
         "script_assets_found": len(script_refs),
         "all_references_found": len(discovered_refs),
@@ -487,6 +532,7 @@ def main() -> int:
         "route_chunks": route_chunks,
         "chunk_hashes_found": len(chunk_hashes),
         "lazy_chunk_attempts": lazy_chunk_attempts,
+        "api_wrapper_candidates": api_wrapper_candidates,
         "errors": errors,
         "assets": assets,
     }
