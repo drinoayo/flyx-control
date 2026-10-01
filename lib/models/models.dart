@@ -111,6 +111,44 @@ class DevicePolicy {
   }
 }
 
+class DeviceSessionRecord {
+  const DeviceSessionRecord({
+    required this.startedAt,
+    required this.lastSeen,
+    this.endedAt,
+  });
+
+  final DateTime startedAt;
+  final DateTime lastSeen;
+  final DateTime? endedAt;
+
+  bool get isCurrent => endedAt == null;
+
+  Duration durationAt(DateTime now) {
+    final end = endedAt ?? now;
+    if (!end.isAfter(startedAt)) return Duration.zero;
+    return end.difference(startedAt);
+  }
+}
+
+class ObservedOutage {
+  const ObservedOutage({
+    required this.startedAt,
+    this.restoredAt,
+  });
+
+  final DateTime startedAt;
+  final DateTime? restoredAt;
+
+  bool get ongoing => restoredAt == null;
+
+  Duration durationAt(DateTime now) {
+    final end = restoredAt ?? now;
+    if (!end.isAfter(startedAt)) return Duration.zero;
+    return end.difference(startedAt);
+  }
+}
+
 class FlyxDevice {
   const FlyxDevice({
     required this.id,
@@ -137,6 +175,8 @@ class FlyxDevice {
     this.wifiRxLinkMbps,
     this.dhcpLeaseExpires,
     this.parentControlSchedule,
+    this.parentControlActive = false,
+    this.recentSessions = const [],
     this.policy = const DevicePolicy(),
   });
 
@@ -176,6 +216,13 @@ class FlyxDevice {
   /// Router-side Kids Management rule matched to this device's current LAN IP.
   final ParentControlSchedule? parentControlSchedule;
 
+  /// Whether the router's own clock says the Parent Control window is active.
+  final bool parentControlActive;
+
+  /// Recent locally observed association sessions. These are observational,
+  /// not reconstructed for periods when FlyX Control was not monitoring.
+  final List<DeviceSessionRecord> recentSessions;
+
   final DevicePolicy policy;
 
   double get totalRate => rxBytesPerSecond + txBytesPerSecond;
@@ -201,6 +248,8 @@ class FlyxDevice {
     DateTime? dhcpLeaseExpires,
     ParentControlSchedule? parentControlSchedule,
     bool clearParentControlSchedule = false,
+    bool? parentControlActive,
+    List<DeviceSessionRecord>? recentSessions,
     DevicePolicy? policy,
   }) {
     return FlyxDevice(
@@ -230,6 +279,9 @@ class FlyxDevice {
       parentControlSchedule: clearParentControlSchedule
           ? null
           : parentControlSchedule ?? this.parentControlSchedule,
+      parentControlActive:
+          parentControlActive ?? this.parentControlActive,
+      recentSessions: recentSessions ?? this.recentSessions,
       policy: policy ?? this.policy,
     );
   }
@@ -263,6 +315,7 @@ class NetworkSnapshot {
     required this.outagesToday,
     required this.latencyMs,
     required this.packetLossPercent,
+    this.recentOutages = const [],
     this.monthDownloadBytes = 0,
     this.monthUploadBytes = 0,
     this.routerCpuPercent,
@@ -291,6 +344,7 @@ class NetworkSnapshot {
   final int outagesToday;
   final int latencyMs;
   final double packetLossPercent;
+  final List<ObservedOutage> recentOutages;
   final int monthDownloadBytes;
   final int monthUploadBytes;
   final double? routerCpuPercent;
@@ -334,6 +388,7 @@ class NetworkSnapshot {
     int? monthBytes,
     int? latencyMs,
     double? packetLossPercent,
+    List<ObservedOutage>? recentOutages,
     int? monthDownloadBytes,
     int? monthUploadBytes,
     double? routerCpuPercent,
@@ -364,6 +419,7 @@ class NetworkSnapshot {
       outagesToday: outagesToday,
       latencyMs: latencyMs ?? this.latencyMs,
       packetLossPercent: packetLossPercent ?? this.packetLossPercent,
+      recentOutages: recentOutages ?? this.recentOutages,
       monthDownloadBytes: monthDownloadBytes ?? this.monthDownloadBytes,
       monthUploadBytes: monthUploadBytes ?? this.monthUploadBytes,
       routerCpuPercent: routerCpuPercent ?? this.routerCpuPercent,
