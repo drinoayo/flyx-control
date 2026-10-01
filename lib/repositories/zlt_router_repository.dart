@@ -54,17 +54,27 @@ class ZltRouterRepository implements RouterRepository {
   int _devicePoll = 0;
 
   Future<void> _ensureLogin() async {
-    if (_loggedIn || client.isAuthenticated) {
+    if (client.isAuthenticated) {
       _loggedIn = true;
       return;
     }
-    _loginFuture ??= client.login(username: username, password: password);
+
+    final existing = _loginFuture;
+    if (existing != null) {
+      await existing;
+      _loggedIn = client.isAuthenticated;
+      return;
+    }
+
+    final future = client.login(username: username, password: password);
+    _loginFuture = future;
     try {
-      await _loginFuture;
+      await future;
       _loggedIn = true;
-    } catch (_) {
-      _loginFuture = null;
-      rethrow;
+    } finally {
+      if (identical(_loginFuture, future)) {
+        _loginFuture = null;
+      }
     }
   }
 
