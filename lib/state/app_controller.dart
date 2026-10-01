@@ -22,6 +22,11 @@ class AppController extends ChangeNotifier {
 
   Future<void> start() async {
     await refresh();
+    _startPolling();
+  }
+
+  void _startPolling() {
+    _timer?.cancel();
     _timer = Timer.periodic(
       const Duration(seconds: 2),
       (_) => _poll(),
@@ -69,6 +74,7 @@ class AppController extends ChangeNotifier {
     capabilities = const RouterCapabilities();
     _pollTick = 0;
     await refresh();
+    _startPolling();
   }
 
   Future<void> refresh({
