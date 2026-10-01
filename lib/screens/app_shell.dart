@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../core/theme.dart';
 import 'devices_screen.dart';
 import 'home_screen.dart';
 import 'more_screen.dart';
@@ -31,8 +30,10 @@ class _AppShellState extends State<AppShell> {
     return Scaffold(
       body: IndexedStack(index: index, children: pages),
       bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          border: Border(top: BorderSide(color: FlyxColors.line)),
+        decoration: BoxDecoration(
+          border: Border(
+            top: BorderSide(color: Theme.of(context).dividerColor),
+          ),
         ),
         child: NavigationBar(
           selectedIndex: index,
