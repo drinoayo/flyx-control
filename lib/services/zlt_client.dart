@@ -283,6 +283,64 @@ class ZltClient {
     await writeExact(20, const {});
   }
 
+  /// Stock Wi-Fi Black/White List state.
+  ///
+  /// subcmd "0" targets 5 GHz and "1" targets 2.4 GHz.
+  /// A null return means the firmware did not materialize a datas object;
+  /// the stock UI treats that state as filter=close with an empty MAC list.
+  Future<Map<String, dynamic>?> readWirelessMacFilter(String subcmd) async {
+    if (subcmd != '0' && subcmd != '1') {
+      throw ArgumentError.value(subcmd, 'subcmd', 'Expected "0" or "1".');
+    }
+
+    final response = await command(
+      278,
+      authenticated: true,
+      fields: {'subcmd': subcmd},
+    );
+    final datas = response['datas'];
+    if (datas == null) return null;
+    if (datas is! Map) {
+      throw ZltApiException(
+        'The router returned an unexpected Wi-Fi MAC-filter state.',
+      );
+    }
+
+    final result = datas.map(
+      (key, value) => MapEntry('$key', value),
+    );
+    final mode = result['macfilter'];
+    final rows = result['maclist'];
+    if (mode is! String || rows is! List) {
+      throw ZltApiException(
+        'The router returned an invalid Wi-Fi MAC-filter structure.',
+      );
+    }
+    if (rows.any((row) => row is! Map)) {
+      throw ZltApiException(
+        'The router returned an invalid Wi-Fi MAC-filter list.',
+      );
+    }
+    return result;
+  }
+
+  Future<void> saveWirelessMacFilter(
+    String subcmd,
+    Map<String, dynamic> datas,
+  ) async {
+    if (subcmd != '0' && subcmd != '1') {
+      throw ArgumentError.value(subcmd, 'subcmd', 'Expected "0" or "1".');
+    }
+    await writeExact(
+      278,
+      {
+        'datas': datas,
+        'subcmd': subcmd,
+        'success': true,
+      },
+    );
+  }
+
   /// Read-only capability discovery.
   ///
   /// The authenticated probes below are GET-style commands only. They do not
