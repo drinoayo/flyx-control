@@ -16,6 +16,11 @@ class WifiBandSettings {
     required this.txPowerPercent,
     required this.maxClients,
     required this.wpsEnabled,
+    this.authenticationType = '2',
+    this.wifiModeCode = '',
+    this.countryCode = '',
+    this.maxClientsLimit = 32,
+    this.dfsEnabled,
   });
 
   final WifiBand band;
@@ -24,9 +29,14 @@ class WifiBandSettings {
   final bool broadcast;
   final String channel;
   final String bandwidthCode;
-  final int txPowerPercent;
+  final double txPowerPercent;
   final int maxClients;
   final bool wpsEnabled;
+  final String authenticationType;
+  final String wifiModeCode;
+  final String countryCode;
+  final int maxClientsLimit;
+  final bool? dfsEnabled;
 
   String get label => band == WifiBand.twoFourGhz ? '2.4 GHz' : '5 GHz';
 }
@@ -35,10 +45,14 @@ class WifiSettingsSnapshot {
   const WifiSettingsSnapshot({
     required this.twoFourGhz,
     required this.fiveGhz,
+    this.optimizationEnabled = false,
   });
 
   final WifiBandSettings twoFourGhz;
   final WifiBandSettings fiveGhz;
+
+  /// Stock X17U "5G Optimization" / shared-band setting.
+  final bool optimizationEnabled;
 }
 
 class WifiUpdateResult {
