@@ -1,6 +1,6 @@
 # FlyX Control
 
-FlyX Control is a local-first Flutter app for managing the MTN FlyX / Tozed ZLT X17U router without relying on the router's web interface.
+FlyX Control is a local-first Flutter app for managing the MTN FlyX, commonly called the MTN ODU, on the Tozed ZLT X17U router without relying on the router's web interface.
 
 It connects directly to the router over the local network and only exposes controls that have been verified against the tested MTN X17U firmware.
 
