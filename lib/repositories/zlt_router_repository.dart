@@ -27,7 +27,6 @@ class ZltRouterRepository implements RouterRepository {
   final UsageStore usageStore;
   final DeviceStore deviceStore;
 
-  bool _loggedIn = false;
   Future<void>? _loginFuture;
   ZltDiscoveryReport? _discovery;
 
@@ -55,14 +54,12 @@ class ZltRouterRepository implements RouterRepository {
 
   Future<void> _ensureLogin() async {
     if (client.isAuthenticated) {
-      _loggedIn = true;
       return;
     }
 
     final existing = _loginFuture;
     if (existing != null) {
       await existing;
-      _loggedIn = client.isAuthenticated;
       return;
     }
 
@@ -70,7 +67,6 @@ class ZltRouterRepository implements RouterRepository {
     _loginFuture = future;
     try {
       await future;
-      _loggedIn = true;
     } finally {
       if (identical(_loginFuture, future)) {
         _loginFuture = null;
