@@ -297,3 +297,21 @@ This confirms the complete stock-UI rule lifecycle on the tested firmware:
 App-side deletion can therefore model "remove the selected rule from the full datas array"; when deleting the final rule, the expected saved/read-back state is datas=[].
 
 The remaining prerequisite before FlyX Control performs Parent Control writes itself is to identify and mirror the stock UI's post-save applyFileter request exactly, including its command ID and transport encoding. Until that is verified, writes remain disabled.
+
+
+## Stock UI v0.6: Parent Control apply command and transport
+
+The refreshed stock frontend scan resolved the remaining Parent Control apply step.
+
+Exact wrappers in the stock UI:
+
+- getParentControlRight: cmd 385, method GET, getfun=true;
+- setParentControlRight: cmd 385, method POST;
+- setParentControlMode: cmd 391, method POST, enable="1";
+- applyFileter: cmd 20, method POST.
+
+The Kids Management save flow writes the complete datas array through cmd 385 and, on success, immediately calls applyFileter(). Deletion uses the same sequence and includes success=true in the payload before saving the shortened/full-empty datas array.
+
+The bundled Axios request transform serializes object payloads as JSON and sets application/json;charset=utf-8. This is consistent with the JSON transport already used successfully by the discovery tooling.
+
+Parent Control's stock-UI lifecycle and apply command are therefore mapped. App-side writes should still pass one reversible test using FlyX Control's own request code before the production UI enables schedule editing. The test must use a disabled rule, preserve the original datas array, apply cmd 20 after cmd 385, verify readback, and restore the original rules even if verification fails.
