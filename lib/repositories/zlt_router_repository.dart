@@ -1899,6 +1899,15 @@ class ZltRouterRepository implements RouterRepository {
   }
 
   @override
+  Future<void> forgetDevice(String deviceId) async {
+    final mac = _normaliseMac(deviceId);
+    if (mac.isEmpty) {
+      throw RouterFeatureUnavailable('Invalid device MAC address.');
+    }
+    await deviceStore.forgetDevice(mac);
+  }
+
+  @override
   Future<void> setDevicePolicy(String deviceId, DevicePolicy policy) async {
     throw RouterFeatureUnavailable(
       'Quota storage is ready, but automatic enforcement needs verified per-device accounting and a safe block path.',
