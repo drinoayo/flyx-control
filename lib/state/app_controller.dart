@@ -249,6 +249,10 @@ class AppController extends ChangeNotifier {
     await _run(() => repository.setDeviceName(id, name));
   }
 
+  Future<void> forgetDevice(String id) async {
+    await _run(() => repository.forgetDevice(id));
+  }
+
   Future<void> setDevicePolicy(String id, DevicePolicy policy) async {
     await _run(() => repository.setDevicePolicy(id, policy));
   }
