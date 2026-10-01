@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../models/models.dart';
 import '../services/usage_store.dart';
 import '../services/zlt_client.dart';
@@ -695,19 +697,20 @@ class ZltRouterRepository implements RouterRepository {
     List<Map<String, dynamic>> a,
     List<Map<String, dynamic>> b,
   ) {
-    if (a.length != b.length) return false;
-    for (var i = 0; i < a.length; i++) {
-      final left = a[i];
-      final right = b[i];
-      if (_text(left['enableRule']) != _text(right['enableRule']) ||
-          _text(left['ip']) != _text(right['ip']) ||
-          _text(left['startTime']) != _text(right['startTime']) ||
-          _text(left['endTime']) != _text(right['endTime']) ||
-          _text(left['scheduleDays']) != _text(right['scheduleDays'])) {
-        return false;
-      }
+    return jsonEncode(_stableJson(a)) == jsonEncode(_stableJson(b));
+  }
+
+  dynamic _stableJson(dynamic value) {
+    if (value is Map) {
+      final keys = value.keys.map((key) => '$key').toList()..sort();
+      return {
+        for (final key in keys) key: _stableJson(value[key]),
+      };
     }
-    return true;
+    if (value is List) {
+      return value.map(_stableJson).toList(growable: false);
+    }
+    return value;
   }
 
   void _validateSchedule(ParentControlSchedule schedule) {
