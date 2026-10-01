@@ -126,10 +126,22 @@ class RouterNetworkModeSnapshot {
   const RouterNetworkModeSnapshot({
     required this.fields,
     required this.displayMode,
+    required this.networkModeCode,
+    required this.flightMode,
+    required this.dataEnabled,
+    required this.roamingEnabled,
+    required this.lteCarrierAggregation,
+    required this.nrCarrierAggregation,
   });
 
   final Map<String, String> fields;
   final String displayMode;
+  final String networkModeCode;
+  final bool flightMode;
+  final bool dataEnabled;
+  final bool roamingEnabled;
+  final bool lteCarrierAggregation;
+  final bool nrCarrierAggregation;
 }
 
 class ParentControlSchedule {
