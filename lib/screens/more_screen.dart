@@ -49,7 +49,7 @@ class MoreScreen extends StatelessWidget {
                       Text(
                         'Manage credentials or run a fresh X17U capability scan',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: FlyxColors.muted,
+                              color: FlyxColors.mutedFor(context),
                             ),
                       ),
                     ],
@@ -206,7 +206,10 @@ class MoreScreen extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.info_outline_rounded, color: FlyxColors.warning),
+                  Icon(
+                    Icons.info_outline_rounded,
+                    color: FlyxColors.warningFor(context),
+                  ),
                   const SizedBox(width: 12),
                   Expanded(child: Text(controller.error!, style: Theme.of(context).textTheme.bodyMedium)),
                 ],
@@ -262,7 +265,7 @@ class _FeatureRow extends StatelessWidget {
       onTap: onTap,
       child: Row(
         children: [
-          Icon(icon, color: enabled ? FlyxColors.yellow : FlyxColors.muted, size: 22),
+          Icon(icon, color: enabled ? FlyxColors.accentFor(context) : FlyxColors.mutedFor(context), size: 22),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
@@ -270,26 +273,26 @@ class _FeatureRow extends StatelessWidget {
               children: [
                 Text(title, style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 3),
-                Text(subtitle, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: FlyxColors.muted)),
+                Text(subtitle, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: FlyxColors.mutedFor(context))),
               ],
             ),
           ),
           if (!enabled)
-            const Icon(
+            Icon(
               Icons.lock_outline_rounded,
-              color: FlyxColors.muted,
+              color: FlyxColors.mutedFor(context),
               size: 20,
             )
           else if (onTap != null)
-            const Icon(
+            Icon(
               Icons.chevron_right_rounded,
-              color: FlyxColors.muted,
+              color: FlyxColors.mutedFor(context),
               size: 20,
             )
           else
-            const Icon(
+            Icon(
               Icons.check_circle_outline_rounded,
-              color: FlyxColors.success,
+              color: FlyxColors.successFor(context),
               size: 20,
             ),
         ],
@@ -308,16 +311,16 @@ class _Capability extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
       decoration: BoxDecoration(
-        color: (active ? FlyxColors.success : FlyxColors.muted).withValues(alpha: .08),
+        color: (active ? FlyxColors.successFor(context) : FlyxColors.mutedFor(context)).withValues(alpha: .08),
         borderRadius: BorderRadius.circular(99),
-        border: Border.all(color: (active ? FlyxColors.success : FlyxColors.muted).withValues(alpha: .18)),
+        border: Border.all(color: (active ? FlyxColors.successFor(context) : FlyxColors.mutedFor(context)).withValues(alpha: .18)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(active ? Icons.check_circle_rounded : Icons.pending_outlined, size: 14, color: active ? FlyxColors.success : FlyxColors.muted),
+          Icon(active ? Icons.check_circle_rounded : Icons.pending_outlined, size: 14, color: active ? FlyxColors.successFor(context) : FlyxColors.mutedFor(context)),
           const SizedBox(width: 6),
-          Text(label, style: Theme.of(context).textTheme.labelMedium?.copyWith(color: active ? FlyxColors.success : FlyxColors.muted)),
+          Text(label, style: Theme.of(context).textTheme.labelMedium?.copyWith(color: active ? FlyxColors.successFor(context) : FlyxColors.mutedFor(context))),
         ],
       ),
     );
