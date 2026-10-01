@@ -122,6 +122,16 @@ class UssdResult {
   final String status;
 }
 
+class RouterNetworkModeSnapshot {
+  const RouterNetworkModeSnapshot({
+    required this.fields,
+    required this.displayMode,
+  });
+
+  final Map<String, String> fields;
+  final String displayMode;
+}
+
 class ParentControlSchedule {
   const ParentControlSchedule({
     required this.enabled,
