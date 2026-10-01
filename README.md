@@ -24,6 +24,7 @@ FlyX Control is being built as a proper consumer network-control app rather than
 - Verified Instant Block / Unblock through the X17U Wi-Fi deny list on both bands, with readback verification and rollback.
 - Persistent app-observed device sessions plus tracked online time today.
 - Locally observed internet uptime and outage counts that ignore periods when FlyX Control was not observing the router.
+- Live Wi-Fi settings view for both 2.4 GHz and 5 GHz, with guarded SSID, password and broadcast controls.
 
 ## Confirmed X17U API mapping
 
@@ -42,6 +43,11 @@ The current tested mapping includes:
 - 337 — monthly traffic totals and traffic-limit configuration fields
 - 401 — dashboard/network summary plus connected-device data
 - 207 — CPU, temperature, memory, firmware and hardware status
+- 2 / 211 — 2.4 GHz / 5 GHz primary Wi-Fi settings
+- 230 / 231 — 2.4 GHz / 5 GHz radio/channel settings
+- 132 — WPS state
+- 410 — advanced Wi-Fi settings endpoint; empty on the tested MTN X17U response
+- 463 — Wi-Fi band-selection endpoint; no extra readable fields on the tested response
 - 23, 28, 30 — accepted as reads, but no readable filter-rule state is returned
 
 Command 25 returns LIMITED_ACCESS on the tested MTN account.
@@ -85,7 +91,7 @@ Completed:
 - Recent observed device-session and internet-outage history.
 
 Remaining major feature groups:
-1. Map Wi-Fi settings.
+1. Complete Wi-Fi live-write verification, then add safe radio/channel controls.
 2. Map SMS and USSD.
 3. Verify reboot, network-mode and advanced radio controls.
 4. Add cleanup/forget controls for remembered devices and finish Android release packaging.
