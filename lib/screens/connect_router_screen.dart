@@ -84,7 +84,7 @@ class _ConnectRouterScreenState extends State<ConnectRouterScreen> {
                           Text(
                             'Local connection · no cloud account',
                             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: FlyxColors.muted,
+                                  color: FlyxColors.mutedFor(context),
                                 ),
                           ),
                         ],
@@ -96,7 +96,7 @@ class _ConnectRouterScreenState extends State<ConnectRouterScreen> {
                 Text(
                   'Your router password stays in encrypted device storage. FlyX Control talks directly to the router over your Wi-Fi.',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: FlyxColors.muted,
+                        color: FlyxColors.mutedFor(context),
                       ),
                 ),
               ],
@@ -148,7 +148,7 @@ class _ConnectRouterScreenState extends State<ConnectRouterScreen> {
             subtitle: Text(
               'Store this router login securely on this phone and reconnect automatically after app or phone restarts.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: FlyxColors.muted,
+                    color: FlyxColors.mutedFor(context),
                   ),
             ),
           ),
@@ -362,7 +362,7 @@ class _Step extends StatelessWidget {
               Text(
                 text,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: FlyxColors.muted,
+                      color: FlyxColors.mutedFor(context),
                     ),
               ),
             ],
