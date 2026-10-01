@@ -4,6 +4,14 @@ FlyX Control is a local-first Flutter app for managing the MTN FlyX, commonly ca
 
 It connects directly to the router over the local network and only exposes controls that have been verified against the tested MTN X17U firmware.
 
+## Download
+
+Public Android builds are distributed through **GitHub Releases** so users can download the signed APK without cloning the source code.
+
+Latest releases: https://github.com/drinoayo/flyx-control/releases/latest
+
+Only APKs published as release assets and signed with the permanent FlyX Control signing key should be treated as official builds.
+
 ## Features
 
 - Live network status, signal metrics, WAN throughput, usage and router health
@@ -19,6 +27,7 @@ It connects directly to the router over the local network and only exposes contr
 - Local daily/weekly usage and reliability history
 - Forget locally remembered offline devices
 - System, light and dark appearance modes
+- Configurable Android home-screen widgets for speed, devices, uptime, SMS and data usage
 
 ## Important limitations
 
