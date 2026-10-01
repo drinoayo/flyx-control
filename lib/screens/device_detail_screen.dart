@@ -22,7 +22,8 @@ class DeviceDetailScreen extends StatelessWidget {
     }
 
     final hasTraffic = controller.capabilities.perDeviceTraffic;
-    final canBlock = controller.capabilities.blocking;
+    final canBlock = controller.capabilities.blocking &&
+        (device.wifiBand.isNotEmpty || device.blocked);
     final canSchedule = controller.capabilities.scheduling;
     final schedule = device.parentControlSchedule;
 
@@ -370,7 +371,9 @@ class DeviceDetailScreen extends StatelessWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'Block / Unblock is hidden for now because the current MTN firmware did not return a readable block list. This avoids a write that could accidentally change the router’s filter mode.',
+                      controller.capabilities.blocking
+                          ? 'Instant Block is available for devices currently identified on FlyX Wi-Fi. This device is not currently associated with a Wi-Fi band.'
+                          : 'Block / Unblock is unavailable because the router’s Wi-Fi deny-list path is not available.',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             color: FlyxColors.muted,
                           ),
