@@ -12,6 +12,7 @@ class AppController extends ChangeNotifier {
   Timer? _timer;
   bool loading = true;
   bool busy = false;
+  bool _refreshing = false;
   String? error;
   NetworkSnapshot? network;
   List<FlyxDevice> devices = const [];
@@ -33,6 +34,8 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> refresh({bool silent = false}) async {
+    if (_refreshing) return;
+    _refreshing = true;
     if (!silent) {
       loading = true;
       notifyListeners();
@@ -53,6 +56,7 @@ class AppController extends ChangeNotifier {
       error = e.toString();
     } finally {
       loading = false;
+      _refreshing = false;
       notifyListeners();
     }
   }
@@ -74,6 +78,17 @@ class AppController extends ChangeNotifier {
 
   Future<void> setDevicePolicy(String id, DevicePolicy policy) async {
     await _run(() => _repository.setDevicePolicy(id, policy));
+  }
+
+  Future<void> setParentControlSchedule(
+    String id,
+    ParentControlSchedule schedule,
+  ) async {
+    await _run(() => _repository.setParentControlSchedule(id, schedule));
+  }
+
+  Future<void> deleteParentControlSchedule(String id) async {
+    await _run(() => _repository.deleteParentControlSchedule(id));
   }
 
   Future<void> reboot() async {
