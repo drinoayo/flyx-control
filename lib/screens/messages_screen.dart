@@ -303,7 +303,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                   style: Theme.of(context)
                       .textTheme
                       .bodyMedium
-                      ?.copyWith(color: FlyxColors.muted),
+                      ?.copyWith(color: FlyxColors.mutedFor(context)),
                 ),
                 const SizedBox(height: 16),
                 TextField(
@@ -367,8 +367,8 @@ class _MessagesScreenState extends State<MessagesScreen> {
                                   ? Icons.mark_email_unread_rounded
                                   : Icons.mail_outline_rounded,
                               color: message.unread
-                                  ? FlyxColors.yellow
-                                  : FlyxColors.muted,
+                                  ? FlyxColors.accentFor(context)
+                                  : FlyxColors.mutedFor(context),
                             ),
                             if (message.unread)
                               const Positioned(
@@ -376,7 +376,8 @@ class _MessagesScreenState extends State<MessagesScreen> {
                                 top: -3,
                                 child: CircleAvatar(
                                   radius: 4,
-                                  backgroundColor: FlyxColors.yellow,
+                                  backgroundColor:
+                                      FlyxColors.accentFor(context),
                                 ),
                               ),
                           ],
@@ -402,13 +403,13 @@ class _MessagesScreenState extends State<MessagesScreen> {
                                   vertical: 3,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: FlyxColors.yellow.withValues(alpha: .12),
+                                  color: FlyxColors.accentFor(context).withValues(alpha: .10),
                                   borderRadius: BorderRadius.circular(99),
                                 ),
                                 child: const Text(
                                   'UNREAD',
                                   style: TextStyle(
-                                    color: FlyxColors.yellow,
+                                    color: FlyxColors.accentFor(context),
                                     fontSize: 10,
                                     fontWeight: FontWeight.w800,
                                     letterSpacing: .4,
