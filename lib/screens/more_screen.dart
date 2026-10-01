@@ -4,6 +4,8 @@ import '../core/theme.dart';
 import '../state/app_scope.dart';
 import '../widgets/common.dart';
 import 'connect_router_screen.dart';
+import 'messages_screen.dart';
+import 'ussd_screen.dart';
 import 'wifi_settings_screen.dart';
 
 class MoreScreen extends StatelessWidget {
@@ -66,9 +68,33 @@ class MoreScreen extends StatelessWidget {
                       : null,
                 ),
                 const Divider(height: 24, indent: 46),
-                _FeatureRow(icon: Icons.sms_outlined, title: 'Messages', subtitle: 'A proper inbox for router SMS', enabled: c.sms),
+                _FeatureRow(
+                  icon: Icons.sms_outlined,
+                  title: 'Messages',
+                  subtitle: 'Inbox, replies and new router SMS',
+                  enabled: c.sms,
+                  onTap: c.sms
+                      ? () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const MessagesScreen(),
+                            ),
+                          )
+                      : null,
+                ),
                 const Divider(height: 24, indent: 46),
-                _FeatureRow(icon: Icons.dialpad_rounded, title: 'USSD', subtitle: 'Quick actions and custom codes', enabled: c.ussd),
+                _FeatureRow(
+                  icon: Icons.dialpad_rounded,
+                  title: 'USSD',
+                  subtitle: 'Custom codes and interactive replies',
+                  enabled: c.ussd,
+                  onTap: c.ussd
+                      ? () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const UssdScreen(),
+                            ),
+                          )
+                      : null,
+                ),
                 const Divider(height: 24, indent: 46),
                 _FeatureRow(icon: Icons.shield_outlined, title: 'Blocked devices', subtitle: 'See and restore denied devices', enabled: c.blocking),
               ],
