@@ -101,18 +101,20 @@ class FlyxWidgetProvider : AppWidgetProvider() {
             }
 
             applyTheme(views, useDark, style)
-            applyData(context, views, metrics, data, style)
+            applyData(context, views, metrics, data, style, useDark)
             manager.updateAppWidget(appWidgetId, views)
         }
 
         private fun applyTheme(views: RemoteViews, dark: Boolean, style: String) {
             val text = Color.parseColor(if (dark) "#F7F8FA" else "#171A1F")
             val muted = Color.parseColor(if (dark) "#959DA8" else "#667085")
+            val brand = Color.parseColor(if (dark) "#FFCB05" else "#8A6800")
             val background = if (dark) R.drawable.widget_bg_dark else R.drawable.widget_bg_light
             val cell = if (dark) R.drawable.widget_cell_dark else R.drawable.widget_cell_light
 
             views.setInt(R.id.widget_root, "setBackgroundResource", background)
-            views.setTextColor(R.id.widget_title, text)
+            views.setTextColor(R.id.widget_title, brand)
+            views.setInt(R.id.widget_accent_bar, "setBackgroundColor", brand)
             views.setTextColor(R.id.widget_status, muted)
             views.setTextColor(R.id.widget_updated, muted)
 
@@ -134,6 +136,7 @@ class FlyxWidgetProvider : AppWidgetProvider() {
             metrics: List<String>,
             data: android.content.SharedPreferences,
             style: String,
+            dark: Boolean,
         ) {
             val connected = data.getBoolean("connected", false)
             views.setTextViewText(R.id.widget_title, "FLYX CONTROL")
@@ -157,6 +160,7 @@ class FlyxWidgetProvider : AppWidgetProvider() {
                 views.setViewVisibility(containerId, View.VISIBLE)
                 views.setTextViewText(labelId(index), metricLabels[metric] ?: metric)
                 views.setTextViewText(valueId(index), data.getString(metric, "—") ?: "—")
+                views.setTextColor(valueId(index), metricColor(metric, dark))
             }
 
             when (style) {
@@ -221,6 +225,20 @@ class FlyxWidgetProvider : AppWidgetProvider() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
             views.setOnClickPendingIntent(R.id.widget_root, pendingIntent)
+        }
+
+        private fun metricColor(metric: String, dark: Boolean): Int {
+            val value = when (metric) {
+                "download" -> if (dark) "#67A8FF" else "#175CD3"
+                "upload" -> if (dark) "#62D98B" else "#1F7A45"
+                "devices" -> if (dark) "#4DD4C0" else "#0E7490"
+                "uptime" -> if (dark) "#B692F6" else "#6941C6"
+                "messages" -> if (dark) "#F670C7" else "#C11574"
+                "today" -> if (dark) "#F6B64D" else "#9A5B00"
+                "month" -> if (dark) "#FFCB05" else "#8A6800"
+                else -> if (dark) "#F7F8FA" else "#171A1F"
+            }
+            return Color.parseColor(value)
         }
 
         private fun configKey(appWidgetId: Int, suffix: String) =
