@@ -276,3 +276,24 @@ The report still showed the disabled Pixel rule because the rule had not actuall
 No deletion behavior should be inferred from this report.
 
 The next step is to delete the Pixel rule in the stock UI and rerun the read-only discovery to observe how cmd 385 represents an empty Parent Control rule set.
+
+
+## Thirteenth authenticated discovery: deletion semantics confirmed
+
+After deleting the final Pixel Parent Control rule through the stock MTN UI, cmd 385 returned an explicit empty rule list:
+
+- datas=[]
+- success=true
+
+The discovery utility reported parent_control_rules_readable=true and parent_control_rule_count=0.
+
+This confirms the complete stock-UI rule lifecycle on the tested firmware:
+
+- create: a rule appears in cmd 385;
+- disable: the same rule remains stored with enableRule=false;
+- edit: time/day values update in place while enable state is preserved;
+- delete: the final rule is represented as an explicit empty datas array.
+
+App-side deletion can therefore model "remove the selected rule from the full datas array"; when deleting the final rule, the expected saved/read-back state is datas=[].
+
+The remaining prerequisite before FlyX Control performs Parent Control writes itself is to identify and mirror the stock UI's post-save applyFileter request exactly, including its command ID and transport encoding. Until that is verified, writes remain disabled.
