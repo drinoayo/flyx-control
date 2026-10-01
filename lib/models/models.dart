@@ -4,6 +4,80 @@ enum DeviceKind { phone, laptop, tv, tablet, desktop, console, unknown }
 enum LimitPeriod { daily, weekly, monthly }
 enum ConnectionGrade { excellent, good, fair, poor }
 
+class ParentControlSchedule {
+  const ParentControlSchedule({
+    required this.enabled,
+    required this.startTime,
+    required this.endTime,
+    required this.days,
+  });
+
+  final bool enabled;
+  final String startTime;
+  final String endTime;
+
+  /// X17U weekday values: Sunday=0, Monday=1 ... Saturday=6.
+  final Set<int> days;
+
+  ParentControlSchedule copyWith({
+    bool? enabled,
+    String? startTime,
+    String? endTime,
+    Set<int>? days,
+  }) {
+    return ParentControlSchedule(
+      enabled: enabled ?? this.enabled,
+      startTime: startTime ?? this.startTime,
+      endTime: endTime ?? this.endTime,
+      days: days ?? this.days,
+    );
+  }
+
+  bool isActiveAt(DateTime value) {
+    if (!enabled || days.isEmpty) return false;
+    final routerDay = value.weekday == DateTime.sunday ? 0 : value.weekday;
+    if (!days.contains(routerDay)) return false;
+
+    final start = _minutes(startTime);
+    final end = _minutes(endTime);
+    if (start == null || end == null || end <= start) return false;
+
+    final current = value.hour * 60 + value.minute;
+    return current >= start && current < end;
+  }
+
+  String get dayLabel {
+    if (days.length == 7) return 'Every day';
+    const labels = {
+      0: 'Sun',
+      1: 'Mon',
+      2: 'Tue',
+      3: 'Wed',
+      4: 'Thu',
+      5: 'Fri',
+      6: 'Sat',
+    };
+    final ordered = <int>[1, 2, 3, 4, 5, 6, 0]
+        .where(days.contains)
+        .map((day) => labels[day]!)
+        .toList();
+    return ordered.join(', ');
+  }
+
+  String get summary => '$startTime–$endTime · $dayLabel';
+
+  static int? _minutes(String value) {
+    final parts = value.split(':');
+    if (parts.length != 2) return null;
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    if (hour == null || minute == null) return null;
+    if (hour < 0 || hour > 24 || minute < 0 || minute > 59) return null;
+    if (hour == 24 && minute != 0) return null;
+    return hour * 60 + minute;
+  }
+}
+
 class DevicePolicy {
   const DevicePolicy({
     this.dataLimitBytes,
@@ -61,6 +135,7 @@ class FlyxDevice {
     this.wifiTxLinkMbps,
     this.wifiRxLinkMbps,
     this.dhcpLeaseExpires,
+    this.parentControlSchedule,
     this.policy = const DevicePolicy(),
   });
 
@@ -96,6 +171,9 @@ class FlyxDevice {
   /// DHCP lease expiry if exposed. This is not device uptime.
   final DateTime? dhcpLeaseExpires;
 
+  /// Router-side Kids Management rule matched to this device's current LAN IP.
+  final ParentControlSchedule? parentControlSchedule;
+
   final DevicePolicy policy;
 
   double get totalRate => rxBytesPerSecond + txBytesPerSecond;
@@ -118,6 +196,8 @@ class FlyxDevice {
     double? wifiTxLinkMbps,
     double? wifiRxLinkMbps,
     DateTime? dhcpLeaseExpires,
+    ParentControlSchedule? parentControlSchedule,
+    bool clearParentControlSchedule = false,
     DevicePolicy? policy,
   }) {
     return FlyxDevice(
@@ -143,6 +223,9 @@ class FlyxDevice {
       wifiTxLinkMbps: wifiTxLinkMbps ?? this.wifiTxLinkMbps,
       wifiRxLinkMbps: wifiRxLinkMbps ?? this.wifiRxLinkMbps,
       dhcpLeaseExpires: dhcpLeaseExpires ?? this.dhcpLeaseExpires,
+      parentControlSchedule: clearParentControlSchedule
+          ? null
+          : parentControlSchedule ?? this.parentControlSchedule,
       policy: policy ?? this.policy,
     );
   }
@@ -287,6 +370,7 @@ class RouterCapabilities {
     this.signal = true,
     this.stationList = false,
     this.blocking = false,
+    this.scheduling = false,
     this.sms = false,
     this.ussd = false,
     this.wifiSettings = false,
@@ -300,6 +384,7 @@ class RouterCapabilities {
   final bool signal;
   final bool stationList;
   final bool blocking;
+  final bool scheduling;
   final bool sms;
   final bool ussd;
   final bool wifiSettings;
