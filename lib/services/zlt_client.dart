@@ -105,28 +105,76 @@ class ZltClient {
   Future<Map<String, dynamic>> write(
     int cmd,
     Map<String, dynamic> fields,
-  ) async {
+  ) {
+    return writeExact(cmd, fields, includeSuccess: true);
+  }
+
+  /// Mirrors the stock UI's write transport while allowing commands that do
+  /// not include a synthetic success=true field.
+  Future<Map<String, dynamic>> writeExact(
+    int cmd,
+    Map<String, dynamic> fields, {
+    bool includeSuccess = false,
+  }) async {
     if (!isAuthenticated) {
       throw ZltLoginException('This action requires a router login.');
     }
 
     final tokenReply = await command(233, authenticated: true);
     final token = '${tokenReply['token'] ?? ''}';
+    if (token.isEmpty) {
+      throw ZltApiException(
+        'Command $cmd could not start because the router returned no write token.',
+      );
+    }
 
     final answer = await _request({
       ...fields,
       'cmd': cmd,
       'method': 'POST',
-      'success': true,
+      if (includeSuccess) 'success': true,
       'sessionId': _sessionId!,
       'token': token,
     });
 
+    _throwIfRefused(answer, cmd);
     final message = '${answer['message'] ?? ''}'.trim();
     if (message.isNotEmpty) {
       throw ZltApiException('Command $cmd was refused: $message');
     }
     return answer;
+  }
+
+  Future<List<Map<String, dynamic>>> readParentControlRules() async {
+    final response = await command(
+      385,
+      authenticated: true,
+      fields: const {'getfun': true},
+    );
+    final rows = response['datas'];
+    if (rows is! List) {
+      throw ZltApiException(
+        'The router did not return a readable Parent Control rule list.',
+      );
+    }
+    return rows
+        .whereType<Map>()
+        .map((row) => row.map((key, value) => MapEntry('$key', value)))
+        .toList(growable: false);
+  }
+
+  Future<void> saveParentControlRules(
+    List<Map<String, dynamic>> rules, {
+    bool deletion = false,
+  }) async {
+    await writeExact(
+      385,
+      {
+        'datas': rules,
+        if (deletion) 'success': true,
+      },
+    );
+    await writeExact(20, const {});
   }
 
   /// Read-only capability discovery.
@@ -190,6 +238,7 @@ class ZltClient {
     final wifi24Rows = responses[224]?['wlan24g_wifi_info'];
     final wifi5Rows = responses[225]?['wlan5g_wifi_info'];
     final ruleRows = responses[23]?['datas'];
+    final parentRows = responses[385]?['datas'];
 
     return ZltDiscoveryReport(
       responses: responses,
@@ -204,6 +253,7 @@ class ZltClient {
       hasFilterRules: ruleRows is List,
       hasFilterModes:
           responses[28]?['datas'] is List || responses[30]?['datas'] is List,
+      hasParentControlRules: parentRows is List,
     );
   }
 
@@ -214,9 +264,15 @@ class ZltClient {
       options: Options(headers: _headers),
     );
 
-    if (response.statusCode == 404) {
+    final status = response.statusCode;
+    if (status == 404) {
       throw ZltApiException(
         'The router does not expose the expected X17U API at /cgi-bin/http.cgi.',
+      );
+    }
+    if (status == null || status < 200 || status >= 300) {
+      throw ZltApiException(
+        'The router returned HTTP ${status ?? 'unknown'} for /cgi-bin/http.cgi.',
       );
     }
     return _asMap(response.data);
@@ -264,6 +320,7 @@ class ZltDiscoveryReport {
     required this.hasMonthlyUsage,
     required this.hasFilterRules,
     required this.hasFilterModes,
+    required this.hasParentControlRules,
   });
 
   final Map<int, Map<String, dynamic>> responses;
@@ -275,12 +332,17 @@ class ZltDiscoveryReport {
   final bool hasMonthlyUsage;
   final bool hasFilterRules;
   final bool hasFilterModes;
+  final bool hasParentControlRules;
 
   bool get hasWifiClientDetails => hasWifi24Clients || hasWifi5Clients;
 
   /// Blocking stays disabled until the router actually returns readable filter
   /// state. Merely accepting cmd 23/28/30 with an empty message is not enough.
   bool get canBlock => hasFilterRules && hasFilterModes;
+
+  /// Scheduling is safe to expose only when cmd 385 returns a real datas list,
+  /// including an explicit empty list after the last rule is deleted.
+  bool get canSchedule => hasParentControlRules;
 
   bool supportsCommand(int cmd) => verifiedCommands.contains(cmd);
 }
