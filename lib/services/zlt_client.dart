@@ -372,6 +372,7 @@ class ZltClient {
     await probe(205);
 
     if (isAuthenticated) {
+      await probe(11, authenticated: true);
       await probe(223, authenticated: true);
       await probe(224, authenticated: true);
       await probe(225, authenticated: true);
