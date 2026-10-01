@@ -32,6 +32,9 @@ class ZltClient {
   final String host;
   final Dio _dio;
   String? _sessionId;
+  String? _loginUsername;
+  String? _loginPassword;
+  Future<void>? _reauthFuture;
 
   String get baseUrl => 'http://$host';
   String get endpoint => '$baseUrl/cgi-bin/http.cgi';
@@ -47,9 +50,27 @@ class ZltClient {
     int cmd, {
     bool authenticated = false,
     Map<String, dynamic> fields = const {},
+  }) {
+    return _command(
+      cmd,
+      authenticated: authenticated,
+      fields: fields,
+      allowReauth: true,
+    );
+  }
+
+  Future<Map<String, dynamic>> _command(
+    int cmd, {
+    required bool authenticated,
+    required Map<String, dynamic> fields,
+    required bool allowReauth,
   }) async {
     if (authenticated && !isAuthenticated) {
-      throw ZltLoginException('Command $cmd requires a router login.');
+      if (allowReauth && _canReauthenticate) {
+        await _reauthenticate();
+      } else {
+        throw ZltLoginException('Command $cmd requires a router login.');
+      }
     }
 
     final body = await _request({
@@ -58,6 +79,19 @@ class ZltClient {
       'sessionId': authenticated ? _sessionId! : '',
       ...fields,
     });
+
+    if (authenticated && _isNoAuth(body)) {
+      _sessionId = null;
+      if (allowReauth && _canReauthenticate) {
+        await _reauthenticate();
+        return _command(
+          cmd,
+          authenticated: authenticated,
+          fields: fields,
+          allowReauth: false,
+        );
+      }
+    }
 
     _throwIfRefused(body, cmd);
     return body;
@@ -100,6 +134,37 @@ class ZltClient {
 
     final returned = '${answer['sessionId'] ?? ''}';
     _sessionId = returned.isEmpty ? requestedSession : returned;
+    _loginUsername = username;
+    _loginPassword = password;
+  }
+
+  bool get _canReauthenticate =>
+      (_loginUsername?.isNotEmpty ?? false) &&
+      (_loginPassword?.isNotEmpty ?? false);
+
+  Future<void> _reauthenticate() async {
+    if (!_canReauthenticate) {
+      throw ZltLoginException('The router session expired. Reconnect to FlyX.');
+    }
+
+    final existing = _reauthFuture;
+    if (existing != null) {
+      await existing;
+      return;
+    }
+
+    final username = _loginUsername!;
+    final password = _loginPassword!;
+    final future = login(username: username, password: password);
+    _reauthFuture = future;
+
+    try {
+      await future;
+    } finally {
+      if (identical(_reauthFuture, future)) {
+        _reauthFuture = null;
+      }
+    }
   }
 
   Future<Map<String, dynamic>> write(
@@ -115,12 +180,35 @@ class ZltClient {
     int cmd,
     Map<String, dynamic> fields, {
     bool includeSuccess = false,
+  }) {
+    return _writeExact(
+      cmd,
+      fields,
+      includeSuccess: includeSuccess,
+      allowReauth: true,
+    );
+  }
+
+  Future<Map<String, dynamic>> _writeExact(
+    int cmd,
+    Map<String, dynamic> fields, {
+    required bool includeSuccess,
+    required bool allowReauth,
   }) async {
     if (!isAuthenticated) {
-      throw ZltLoginException('This action requires a router login.');
+      if (allowReauth && _canReauthenticate) {
+        await _reauthenticate();
+      } else {
+        throw ZltLoginException('This action requires a router login.');
+      }
     }
 
-    final tokenReply = await command(233, authenticated: true);
+    final tokenReply = await _command(
+      233,
+      authenticated: true,
+      fields: const {},
+      allowReauth: allowReauth,
+    );
     final token = '${tokenReply['token'] ?? ''}';
     if (token.isEmpty) {
       throw ZltApiException(
@@ -136,6 +224,19 @@ class ZltClient {
       'sessionId': _sessionId!,
       'token': token,
     });
+
+    if (_isNoAuth(answer)) {
+      _sessionId = null;
+      if (allowReauth && _canReauthenticate) {
+        await _reauthenticate();
+        return _writeExact(
+          cmd,
+          fields,
+          includeSuccess: includeSuccess,
+          allowReauth: false,
+        );
+      }
+    }
 
     _throwIfRefused(answer, cmd);
     final message = '${answer['message'] ?? ''}'.trim();
@@ -283,9 +384,19 @@ class ZltClient {
     return _asMap(response.data);
   }
 
+  bool _isNoAuth(Map<String, dynamic> body) {
+    if (body['success'] != false) return false;
+    return '${body['message'] ?? ''}'.trim().toUpperCase() == 'NO_AUTH';
+  }
+
   void _throwIfRefused(Map<String, dynamic> body, int cmd) {
     if (body['success'] == false) {
       final message = '${body['message'] ?? 'unknown error'}';
+      if (_isNoAuth(body)) {
+        throw ZltLoginException(
+          'The router session expired while running command $cmd.',
+        );
+      }
       throw ZltApiException('Command $cmd was refused: $message');
     }
   }
