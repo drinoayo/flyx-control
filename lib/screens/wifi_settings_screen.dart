@@ -704,7 +704,7 @@ class _WifiBandEditorState extends State<_WifiBandEditor> {
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<double>(
-            initialValue: const {100.0, 75.0, 50.0, 25.0, 12.5}
+            initialValue: const [100.0, 75.0, 50.0, 25.0, 12.5]
                     .contains(_txPower)
                 ? _txPower
                 : 100.0,
