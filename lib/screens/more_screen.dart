@@ -4,6 +4,7 @@ import '../core/theme.dart';
 import '../state/app_scope.dart';
 import '../widgets/common.dart';
 import 'connect_router_screen.dart';
+import 'wifi_settings_screen.dart';
 
 class MoreScreen extends StatelessWidget {
   const MoreScreen({super.key});
@@ -51,7 +52,19 @@ class MoreScreen extends StatelessWidget {
           SurfaceCard(
             child: Column(
               children: [
-                _FeatureRow(icon: Icons.wifi_rounded, title: 'Wi-Fi', subtitle: 'SSID, password, QR sharing', enabled: c.wifiSettings),
+                _FeatureRow(
+                  icon: Icons.wifi_rounded,
+                  title: 'Wi-Fi',
+                  subtitle: 'SSID, password and network visibility',
+                  enabled: c.wifiSettings,
+                  onTap: c.wifiSettings
+                      ? () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const WifiSettingsScreen(),
+                            ),
+                          )
+                      : null,
+                ),
                 const Divider(height: 24, indent: 46),
                 _FeatureRow(icon: Icons.sms_outlined, title: 'Messages', subtitle: 'A proper inbox for router SMS', enabled: c.sms),
                 const Divider(height: 24, indent: 46),
