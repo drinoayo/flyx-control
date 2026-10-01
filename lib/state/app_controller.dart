@@ -136,7 +136,7 @@ class AppController extends ChangeNotifier {
     final now = DateTime.now();
     if (!force &&
         _lastWidgetSyncAt != null &&
-        now.difference(_lastWidgetSyncAt!) < const Duration(seconds: 10)) {
+        now.difference(_lastWidgetSyncAt!) < const Duration(seconds: 3)) {
       return;
     }
 
