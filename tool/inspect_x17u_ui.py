@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Read-only inspection of the X17U stock web UI.
 
-Version 0.2 is more tolerant of router front-ends that do not place ordinary
+Version 0.6 is more tolerant of router front-ends that do not place ordinary
 <script src="..."> tags on /. It follows same-origin HTML/iframe/meta-refresh
 references, discovers JS-like URLs from script/link/src/href attributes and
 quoted strings, and records small sanitized previews of entry documents.
@@ -61,6 +61,19 @@ PATTERNS = [
     r"kidDevices",
     r"kidManage",
     r"schedule",
+    r"applyFileter",
+    r"setParentControlRight",
+    r"getParentControlRight",
+    r"setParentControlMode",
+    r"cmd\s*[:=]\s*385\b",
+    r"cmd\s*[:=]\s*391\b",
+    r"cmd\s*[:=]\s*397\b",
+    r"axios\.create",
+    r"baseURL",
+    r"transformRequest",
+    r"application/x-www-form-urlencoded",
+    r"application/json",
+    r"qs\.(?:parse|stringify)",
 ]
 
 ATTR_RE = re.compile(
@@ -118,7 +131,7 @@ def fetch_text(url: str, timeout: float = 8.0) -> dict[str, Any]:
     req = urllib.request.Request(
         url,
         headers={
-            "User-Agent": "FlyX-Control-UI-Inspector/0.3",
+            "User-Agent": "FlyX-Control-UI-Inspector/0.6",
             "Accept": "text/html,application/javascript,text/javascript,text/css,*/*",
             "Accept-Encoding": "identity",
         },
