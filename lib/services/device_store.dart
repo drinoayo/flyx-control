@@ -26,6 +26,16 @@ class StoredDeviceProfile {
   }
 }
 
+class DeviceSessionStats {
+  const DeviceSessionStats({
+    required this.currentSession,
+    required this.totalOnlineToday,
+  });
+
+  final Duration currentSession;
+  final Duration totalOnlineToday;
+}
+
 class DeviceObservation {
   const DeviceObservation({
     required this.mac,
@@ -54,7 +64,7 @@ class DeviceStore {
 
     _db = await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: (db, version) async {
         await db.execute(
           '''
@@ -72,10 +82,39 @@ class DeviceStore {
           'CREATE INDEX device_profiles_last_seen_idx '
           'ON device_profiles(last_seen DESC)',
         );
+        await _createSessionTables(db);
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          await _createSessionTables(db);
+        }
       },
     );
 
     return _db!;
+  }
+
+
+  static Future<void> _createSessionTables(DatabaseExecutor db) async {
+    await db.execute(
+      '''
+      CREATE TABLE IF NOT EXISTS device_sessions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        mac TEXT NOT NULL,
+        started_at INTEGER NOT NULL,
+        last_seen INTEGER NOT NULL,
+        ended_at INTEGER
+      )
+      ''',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS device_sessions_mac_idx '
+      'ON device_sessions(mac, started_at DESC)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS device_sessions_open_idx '
+      'ON device_sessions(ended_at)',
+    );
   }
 
   Future<void> recordObservations(
@@ -83,12 +122,29 @@ class DeviceStore {
     required DateTime seenAt,
   }) async {
     final rows = observations.toList(growable: false);
-    if (rows.isEmpty) return;
-
     final db = await _database();
     final seenMs = seenAt.millisecondsSinceEpoch;
+    final onlineMacs = rows.map((row) => row.mac).toSet();
 
     await db.transaction((txn) async {
+      final openSessions = await txn.query(
+        'device_sessions',
+        where: 'ended_at IS NULL',
+      );
+
+      for (final session in openSessions) {
+        final mac = '${session['mac']}';
+        final lastSeen = (session['last_seen'] as num).toInt();
+        if (!onlineMacs.contains(mac)) {
+          await txn.update(
+            'device_sessions',
+            {'ended_at': lastSeen},
+            where: 'id = ?',
+            whereArgs: [session['id']],
+          );
+        }
+      }
+
       for (final observation in rows) {
         final existing = await txn.query(
           'device_profiles',
@@ -124,8 +180,108 @@ class DeviceStore {
           where: 'mac = ?',
           whereArgs: [observation.mac],
         );
+
+        final open = await txn.query(
+          'device_sessions',
+          where: 'mac = ? AND ended_at IS NULL',
+          whereArgs: [observation.mac],
+          orderBy: 'started_at DESC',
+          limit: 1,
+        );
+
+        if (open.isEmpty) {
+          await txn.insert(
+            'device_sessions',
+            {
+              'mac': observation.mac,
+              'started_at': seenMs,
+              'last_seen': seenMs,
+              'ended_at': null,
+            },
+          );
+        } else {
+          final session = open.first;
+          final lastSeen = (session['last_seen'] as num).toInt();
+          const maxResumeGapMs = 90 * 1000;
+
+          if (seenMs - lastSeen > maxResumeGapMs) {
+            await txn.update(
+              'device_sessions',
+              {'ended_at': lastSeen},
+              where: 'id = ?',
+              whereArgs: [session['id']],
+            );
+            await txn.insert(
+              'device_sessions',
+              {
+                'mac': observation.mac,
+                'started_at': seenMs,
+                'last_seen': seenMs,
+                'ended_at': null,
+              },
+            );
+          } else {
+            await txn.update(
+              'device_sessions',
+              {'last_seen': seenMs},
+              where: 'id = ?',
+              whereArgs: [session['id']],
+            );
+          }
+        }
       }
     });
+  }
+
+
+  Future<Map<String, DeviceSessionStats>> sessionStatsByMac({
+    required DateTime now,
+  }) async {
+    final db = await _database();
+    final nowMs = now.millisecondsSinceEpoch;
+    final dayStart = DateTime(now.year, now.month, now.day)
+        .millisecondsSinceEpoch;
+
+    final rows = await db.query(
+      'device_sessions',
+      where: 'last_seen >= ? OR ended_at IS NULL',
+      whereArgs: [dayStart],
+      orderBy: 'started_at ASC',
+    );
+
+    final todayMs = <String, int>{};
+    final current = <String, Duration>{};
+
+    for (final row in rows) {
+      final mac = '${row['mac']}';
+      final start = (row['started_at'] as num).toInt();
+      final lastSeen = (row['last_seen'] as num).toInt();
+      final endedRaw = row['ended_at'];
+      final ended = endedRaw == null ? null : (endedRaw as num).toInt();
+
+      final effectiveStart = start < dayStart ? dayStart : start;
+      final effectiveEnd = ended ?? nowMs;
+      if (effectiveEnd > effectiveStart) {
+        todayMs[mac] = (todayMs[mac] ?? 0) + (effectiveEnd - effectiveStart);
+      }
+
+      if (ended == null && nowMs - lastSeen <= 90 * 1000) {
+        current[mac] = Duration(
+          milliseconds: nowMs - start,
+        );
+      }
+    }
+
+    final macs = {...todayMs.keys, ...current.keys};
+    return {
+      for (final mac in macs)
+        mac: DeviceSessionStats(
+          currentSession: current[mac] ?? Duration.zero,
+          totalOnlineToday: Duration(
+            milliseconds: todayMs[mac] ?? 0,
+          ),
+        ),
+    };
   }
 
   Future<void> setFriendlyName(String mac, String? name) async {
