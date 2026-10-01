@@ -127,7 +127,7 @@ class _WifiSettingsScreenState extends State<WifiSettingsScreen> {
                   style: Theme.of(context)
                       .textTheme
                       .bodyMedium
-                      ?.copyWith(color: FlyxColors.muted),
+                      ?.copyWith(color: FlyxColors.mutedFor(context)),
                 ),
                 const SizedBox(height: 22),
                 SurfaceCard(
@@ -535,12 +535,12 @@ class _WifiBandEditorState extends State<_WifiBandEditor> {
                     width: 44,
                     height: 44,
                     decoration: BoxDecoration(
-                      color: FlyxColors.yellow.withValues(alpha: .1),
+                      color: FlyxColors.accentFor(context).withValues(alpha: .10),
                       borderRadius: BorderRadius.circular(14),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.wifi_rounded,
-                      color: FlyxColors.yellow,
+                      color: FlyxColors.accentFor(context),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -556,10 +556,10 @@ class _WifiBandEditorState extends State<_WifiBandEditor> {
                               : (_enabled ? 'Wi-Fi enabled' : 'Wi-Fi disabled'),
                           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                 color: widget.lockedByOptimization
-                                    ? FlyxColors.warning
+                                    ? FlyxColors.warningFor(context)
                                     : (_enabled
-                                        ? FlyxColors.success
-                                        : FlyxColors.muted),
+                                        ? FlyxColors.successFor(context)
+                                        : FlyxColors.mutedFor(context)),
                               ),
                         ),
                       ],
@@ -568,9 +568,9 @@ class _WifiBandEditorState extends State<_WifiBandEditor> {
                   AnimatedRotation(
                     duration: const Duration(milliseconds: 180),
                     turns: _expanded ? .5 : 0,
-                    child: const Icon(
+                    child: Icon(
                       Icons.keyboard_arrow_down_rounded,
-                      color: FlyxColors.muted,
+                      color: FlyxColors.mutedFor(context),
                     ),
                   ),
                 ],
@@ -585,7 +585,7 @@ class _WifiBandEditorState extends State<_WifiBandEditor> {
               style: Theme.of(context)
                   .textTheme
                   .bodyMedium
-                  ?.copyWith(color: FlyxColors.muted),
+                  ?.copyWith(color: FlyxColors.mutedFor(context)),
             ),
           ],
           const SizedBox(height: 22),
@@ -788,7 +788,7 @@ class _WifiBandEditorState extends State<_WifiBandEditor> {
             style: Theme.of(context)
                 .textTheme
                 .bodyMedium
-                ?.copyWith(color: FlyxColors.muted),
+                ?.copyWith(color: FlyxColors.mutedFor(context)),
           ),
           ],
         ],
