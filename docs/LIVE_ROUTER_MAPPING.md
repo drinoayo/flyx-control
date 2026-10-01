@@ -456,3 +456,23 @@ Confirmed through the app:
 This confirms the complete app-side cmd 278 lifecycle on the tested firmware: device selection, both-band deny-list write, readback verification, blocked-state persistence in the app, and unblock restoration.
 
 Instant Block / Unblock is therefore considered complete for the v0.1 beta on the tested MTN X17U firmware.
+
+
+## Per-device traffic probe: no byte counters exposed
+
+A read-only idle-vs-active traffic probe was run against a real connected 5 GHz client.
+
+Observed:
+
+- cmd 223 continued to report flow=0 during both idle and active traffic;
+- cmd 355 returned no usable per-device data;
+- cmd 402 mirrored the DHCP-style row when parseable and still reported flow=0;
+- cmd 225 changed txrate from 0/2 to 31 during active traffic while rxrate remained 0, and RSSI also moved.
+
+Conclusion:
+
+- no verified per-device byte counter was exposed by cmds 223, 225, 355 or 402 in this test;
+- cmd 225 txrate is useful only as a Wi-Fi association/link-rate activity signal and must not be presented as Internet throughput or data usage;
+- per-device daily/weekly/monthly usage cannot be derived honestly from these fields.
+
+The next discovery step is to identify the stock firmware's Speed Limit/QoS command path and any hidden per-client accounting table before implementing quotas or true live Internet speed.
