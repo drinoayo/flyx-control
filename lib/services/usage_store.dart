@@ -339,6 +339,70 @@ class UsageStore {
     );
   }
 
+  Future<List<ObservedOutage>> recentObservedOutages({
+    required DateTime now,
+    int limit = 5,
+  }) async {
+    final db = await _database();
+    final cutoff = now.subtract(const Duration(days: 8)).millisecondsSinceEpoch;
+    final rows = await db.query(
+      'network_samples',
+      where: 'ts >= ?',
+      whereArgs: [cutoff],
+      orderBy: 'ts ASC',
+    );
+    if (rows.length < 2) return const [];
+
+    const maxObservedGap = Duration(seconds: 15);
+    final maxGapMs = maxObservedGap.inMilliseconds;
+    final outages = <ObservedOutage>[];
+    DateTime? outageStart;
+
+    for (var i = 0; i + 1 < rows.length; i++) {
+      final current = rows[i];
+      final next = rows[i + 1];
+      final currentTs = (current['ts'] as num).toInt();
+      final nextTs = (next['ts'] as num).toInt();
+      final gapMs = nextTs - currentTs;
+
+      if (gapMs <= 0 || gapMs > maxGapMs) {
+        // Monitoring gaps are unknown time, so never bridge an outage across
+        // them or invent a restoration time.
+        outageStart = null;
+        continue;
+      }
+
+      final currentConnected = (current['connected'] as num).toInt() == 1;
+      final nextConnected = (next['connected'] as num).toInt() == 1;
+
+      if (currentConnected && !nextConnected) {
+        outageStart = DateTime.fromMillisecondsSinceEpoch(nextTs);
+      } else if (!currentConnected && nextConnected && outageStart != null) {
+        outages.add(
+          ObservedOutage(
+            startedAt: outageStart,
+            restoredAt: DateTime.fromMillisecondsSinceEpoch(nextTs),
+          ),
+        );
+        outageStart = null;
+      }
+    }
+
+    final last = rows.last;
+    final lastTs = (last['ts'] as num).toInt();
+    final lastConnected = (last['connected'] as num).toInt() == 1;
+    final tailMs = now.millisecondsSinceEpoch - lastTs;
+    if (!lastConnected &&
+        outageStart != null &&
+        tailMs >= 0 &&
+        tailMs <= maxGapMs) {
+      outages.add(ObservedOutage(startedAt: outageStart));
+    }
+
+    outages.sort((a, b) => b.startedAt.compareTo(a.startedAt));
+    return outages.take(limit).toList(growable: false);
+  }
+
   Future<int> usageSince(DateTime start) async {
     final db = await _database();
     final rows = await db.rawQuery(
