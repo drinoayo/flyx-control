@@ -156,22 +156,12 @@ class FlyxWidgetProvider : AppWidgetProvider() {
                 views.setViewVisibility(containerId, View.VISIBLE)
                 val rawValue = data.getString(metric, "—") ?: "—"
                 val displayValue = if (metric == "messages") {
-                    if (rawValue == "0") "All read" else "Unread"
+                    if (rawValue == "0") "All read" else "$rawValue unread"
                 } else {
                     rawValue
                 }
                 views.setTextViewText(labelId(index), metricLabels[metric] ?: metric)
                 views.setTextViewText(valueId(index), displayValue)
-                views.setTextColor(valueId(index), metricColor(metric, dark))
-                views.setImageViewResource(iconId(index), metricIcon(metric))
-
-                val badge = badgeId(index)
-                if (metric == "messages" && rawValue != "0" && rawValue != "—") {
-                    views.setViewVisibility(badge, View.VISIBLE)
-                    views.setTextViewText(badge, "$rawValue unread")
-                } else {
-                    views.setViewVisibility(badge, View.GONE)
-                }
             }
 
             when (style) {
@@ -230,31 +220,6 @@ class FlyxWidgetProvider : AppWidgetProvider() {
             views.setOnClickPendingIntent(R.id.widget_root, pendingIntent)
         }
 
-        private fun metricIcon(metric: String): Int = when (metric) {
-            "download" -> R.drawable.ic_widget_download
-            "upload" -> R.drawable.ic_widget_upload
-            "devices" -> R.drawable.ic_widget_devices
-            "uptime" -> R.drawable.ic_widget_uptime
-            "messages" -> R.drawable.ic_widget_messages
-            "today" -> R.drawable.ic_widget_today
-            "month" -> R.drawable.ic_widget_month
-            else -> R.drawable.ic_widget_download
-        }
-
-        private fun metricColor(metric: String, dark: Boolean): Int {
-            val value = when (metric) {
-                "download" -> if (dark) "#67A8FF" else "#175CD3"
-                "upload" -> if (dark) "#62D98B" else "#1F7A45"
-                "devices" -> if (dark) "#4DD4C0" else "#0E7490"
-                "uptime" -> if (dark) "#B692F6" else "#6941C6"
-                "messages" -> if (dark) "#F670C7" else "#C11574"
-                "today" -> if (dark) "#F6B64D" else "#9A5B00"
-                "month" -> if (dark) "#FFCB05" else "#8A6800"
-                else -> if (dark) "#F7F8FA" else "#171A1F"
-            }
-            return Color.parseColor(value)
-        }
-
         private fun configKey(appWidgetId: Int, suffix: String) =
             "widget_${appWidgetId}_$suffix"
 
@@ -263,20 +228,6 @@ class FlyxWidgetProvider : AppWidgetProvider() {
             2 -> R.id.metric2
             3 -> R.id.metric3
             else -> R.id.metric4
-        }
-
-        private fun iconId(index: Int) = when (index) {
-            1 -> R.id.metric1_icon
-            2 -> R.id.metric2_icon
-            3 -> R.id.metric3_icon
-            else -> R.id.metric4_icon
-        }
-
-        private fun badgeId(index: Int) = when (index) {
-            1 -> R.id.metric1_badge
-            2 -> R.id.metric2_badge
-            3 -> R.id.metric3_badge
-            else -> R.id.metric4_badge
         }
 
         private fun labelId(index: Int) = when (index) {
