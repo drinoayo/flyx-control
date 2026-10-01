@@ -7,6 +7,28 @@ import 'router_repository.dart';
 class MockRouterRepository implements RouterRepository {
   final Random _random = Random(4);
   int _tick = 0;
+  WifiBandSettings _wifi24 = const WifiBandSettings(
+    band: WifiBand.twoFourGhz,
+    ssid: 'FlyX-2.4G',
+    enabled: true,
+    broadcast: true,
+    channel: '6',
+    bandwidthCode: '2',
+    txPowerPercent: 100,
+    maxClients: 32,
+    wpsEnabled: true,
+  );
+  WifiBandSettings _wifi5 = const WifiBandSettings(
+    band: WifiBand.fiveGhz,
+    ssid: 'FlyX-5G',
+    enabled: true,
+    broadcast: true,
+    channel: '157',
+    bandwidthCode: '3',
+    txPowerPercent: 100,
+    maxClients: 32,
+    wpsEnabled: true,
+  );
 
   late final List<FlyxDevice> _devices = [
     FlyxDevice(
@@ -175,6 +197,39 @@ class MockRouterRepository implements RouterRepository {
         UsagePoint('Sat', 15676630630),
         UsagePoint('Sun', 6764573491),
       ];
+
+  @override
+  Future<WifiSettingsSnapshot> fetchWifiSettings() async =>
+      WifiSettingsSnapshot(twoFourGhz: _wifi24, fiveGhz: _wifi5);
+
+  @override
+  Future<WifiUpdateResult> updateWifiPrimary(
+    WifiBand band, {
+    String? ssid,
+    String? password,
+    bool? broadcast,
+  }) async {
+    final current = band == WifiBand.twoFourGhz ? _wifi24 : _wifi5;
+    final next = WifiBandSettings(
+      band: current.band,
+      ssid: ssid ?? current.ssid,
+      enabled: current.enabled,
+      broadcast: broadcast ?? current.broadcast,
+      channel: current.channel,
+      bandwidthCode: current.bandwidthCode,
+      txPowerPercent: current.txPowerPercent,
+      maxClients: current.maxClients,
+      wpsEnabled: current.wpsEnabled,
+    );
+    if (band == WifiBand.twoFourGhz) {
+      _wifi24 = next;
+    } else {
+      _wifi5 = next;
+    }
+    return WifiUpdateResult(
+      reconnectExpected: ssid != null || (password?.isNotEmpty ?? false),
+    );
+  }
 
   @override
   Future<RouterCapabilities> capabilities() async => const RouterCapabilities(
