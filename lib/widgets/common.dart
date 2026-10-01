@@ -57,22 +57,24 @@ class SurfaceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final dark = theme.brightness == Brightness.dark;
     final card = AnimatedContainer(
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOutCubic,
       padding: padding,
       decoration: BoxDecoration(
-        color: emphasized ? const Color(0xFF171B20) : FlyxColors.surface,
+        color: emphasized
+            ? theme.colorScheme.surfaceContainerHighest
+            : theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: emphasized ? const Color(0xFF303640) : FlyxColors.line,
-        ),
-        boxShadow: const [
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+        boxShadow: [
           BoxShadow(
             blurRadius: 28,
             spreadRadius: -20,
-            offset: Offset(0, 12),
-            color: Colors.black54,
+            offset: const Offset(0, 12),
+            color: dark ? Colors.black54 : Colors.black12,
           ),
         ],
       ),
@@ -348,9 +350,11 @@ class QuickAction extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
           decoration: BoxDecoration(
-            color: FlyxColors.surface,
+            color: Theme.of(context).colorScheme.surface,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: FlyxColors.line),
+            border: Border.all(
+              color: Theme.of(context).colorScheme.outlineVariant,
+            ),
           ),
           child: Column(
             children: [
