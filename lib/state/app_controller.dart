@@ -123,18 +123,71 @@ class AppController extends ChangeNotifier {
     WifiBand band, {
     String? ssid,
     String? password,
+    bool? enabled,
     bool? broadcast,
-  }) async {
+    String? authenticationType,
+  }) {
+    return _runWifi(
+      () => repository.updateWifiPrimary(
+        band,
+        ssid: ssid,
+        password: password,
+        enabled: enabled,
+        broadcast: broadcast,
+        authenticationType: authenticationType,
+      ),
+    );
+  }
+
+  Future<WifiUpdateResult> updateWifiRadio(
+    WifiBand band, {
+    String? channel,
+    String? wifiModeCode,
+    String? bandwidthCode,
+    double? txPowerPercent,
+    int? maxClients,
+    bool? dfsEnabled,
+  }) {
+    return _runWifi(
+      () => repository.updateWifiRadio(
+        band,
+        channel: channel,
+        wifiModeCode: wifiModeCode,
+        bandwidthCode: bandwidthCode,
+        txPowerPercent: txPowerPercent,
+        maxClients: maxClients,
+        dfsEnabled: dfsEnabled,
+      ),
+    );
+  }
+
+  Future<void> setWifiWps(WifiBand band, bool enabled) async {
     busy = true;
     error = null;
     notifyListeners();
     try {
-      final result = await repository.updateWifiPrimary(
-        band,
-        ssid: ssid,
-        password: password,
-        broadcast: broadcast,
-      );
+      await repository.setWifiWps(band, enabled);
+    } catch (e) {
+      error = e.toString();
+      rethrow;
+    } finally {
+      busy = false;
+      notifyListeners();
+    }
+  }
+
+  Future<WifiUpdateResult> setWifiOptimization(bool enabled) {
+    return _runWifi(() => repository.setWifiOptimization(enabled));
+  }
+
+  Future<WifiUpdateResult> _runWifi(
+    Future<WifiUpdateResult> Function() task,
+  ) async {
+    busy = true;
+    error = null;
+    notifyListeners();
+    try {
+      final result = await task();
       if (!result.reconnectExpected) {
         await refresh(silent: true, allowWhileBusy: true);
       }
