@@ -31,6 +31,14 @@
             android:textColor="#62D98B"
             android:textSize="10sp" />
     </LinearLayout>
+    <TextView
+        android:id="@+id/widget_accent_bar"
+        android:layout_width="42dp"
+        android:layout_height="3dp"
+        android:layout_marginTop="8dp"
+        android:background="#FFCB05"
+        android:text="" />
+
 
     <LinearLayout
         android:id="@+id/metric1"
