@@ -1,7 +1,7 @@
 name: flyx_control
 description: A premium local-first controller for MTN FlyX / ZLT X17U routers.
 publish_to: 'none'
-version: 0.1.0+5
+version: 0.1.0+6
 
 environment:
   sdk: '>=3.13.0 <4.0.0'
