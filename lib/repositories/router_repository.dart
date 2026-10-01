@@ -4,6 +4,13 @@ abstract class RouterRepository {
   Future<NetworkSnapshot> fetchNetwork();
   Future<List<FlyxDevice>> fetchDevices();
   Future<List<UsagePoint>> fetchWeeklyUsage();
+  Future<WifiSettingsSnapshot> fetchWifiSettings();
+  Future<WifiUpdateResult> updateWifiPrimary(
+    WifiBand band, {
+    String? ssid,
+    String? password,
+    bool? broadcast,
+  });
   Future<RouterCapabilities> capabilities();
   Future<void> setBlocked(String deviceId, bool blocked);
   Future<void> setDeviceName(String deviceId, String name);
