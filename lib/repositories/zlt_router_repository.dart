@@ -1351,6 +1351,1265 @@ class ZltRouterRepository implements RouterRepository {
     }
   }
   @override
+  Future<RouterSmsPage> fetchSmsInbox({int page = 1}) async {
+    await _ensureLogin();
+    if (page < 1) page = 1;
+
+    final results = await Future.wait<Map<String, dynamic>>([
+      client.command(
+        12,
+        authenticated: true,
+        fields: {'page_num': page, 'subcmd': 0},
+      ),
+      _safeCommand(16),
+    ]);
+    final raw = results[0];
+    final settings = results[1];
+    final messages = <RouterSmsMessage>[];
+    final encodedList = _text(raw['sms_list']);
+
+    if (encodedList.isNotEmpty) {
+      for (final encoded in encodedList.split(',')) {
+        final decoded = _decodeSmsValue(encoded);
+        if (decoded.isEmpty) continue;
+        final parts = decoded.split(' ');
+        if (parts.length < 6) continue;
+        final index = int.tryParse(parts[0]);
+        if (index == null) continue;
+        messages.add(
+          RouterSmsMessage(
+            index: index,
+            unread: parts[1] == '0',
+            phoneNumber: parts[2].replaceAll(r'
+    final report = await _ensureDiscovery();
+    return RouterCapabilities(
+      signal: report.supportsCommand(133),
+      stationList: report.hasStationList,
+      blocking: report.canBlock,
+      scheduling: report.canSchedule,
+      sms: report.supportsCommand(12) && report.supportsCommand(16),
+      ussd: report.supportsCommand(207),
+      wifiSettings: report.supportsCommand(2) && report.supportsCommand(211),
+      reboot: false,
+      perDeviceTraffic: false,
+      qos: false,
+      networkMode: false,
+      discoveredActions:
+          report.verifiedCommands.map((cmd) => 'cmd:$cmd').toList(),
+    );
+  }
+
+  @override
+  Future<void> setBlocked(String deviceId, bool blocked) async {
+    await _ensureLogin();
+    final report = await _ensureDiscovery();
+    if (!report.canBlock) {
+      throw RouterFeatureUnavailable(
+        'Instant Block / Unblock is staged but still locked until the direct Wi-Fi blacklist write path passes its reversible live-router verification.',
+      );
+    }
+
+    final mac = _normaliseMac(deviceId);
+    if (mac.isEmpty) {
+      throw RouterFeatureUnavailable('Invalid device MAC address.');
+    }
+
+    if (blocked) {
+      final targetIp = await _currentIpForMacOrNull(mac);
+      final localIp = await _localLanIp();
+      if (targetIp != null && localIp != null && targetIp == localIp) {
+        throw RouterFeatureUnavailable(
+          'FlyX Control will not block the phone currently being used to manage the router.',
+        );
+      }
+    }
+
+    final originals = <String, Map<String, dynamic>>{};
+    final updated = <String, Map<String, dynamic>>{};
+
+    for (final subcmd in const ['0', '1']) {
+      final state = await _wirelessFilterState(subcmd);
+      originals[subcmd] = _deepMapCopy(state);
+
+      final mode = _text(state['macfilter']);
+      if (mode == 'allow') {
+        throw RouterFeatureUnavailable(
+          'This router is using Wi-Fi whitelist mode. FlyX Control will not change that policy automatically.',
+        );
+      }
+
+      final rows = <Map<String, dynamic>>[
+        for (final row in state['maclist'] as List)
+          if (row is Map)
+            row.map((key, value) => MapEntry('$key', value)),
+      ]..removeWhere(
+          (row) => _normaliseMac(_text(row['mac'])) == mac,
+        );
+
+      if (blocked) {
+        if (rows.length >= 32) {
+          throw RouterFeatureUnavailable(
+            'This Wi-Fi blacklist already contains the maximum supported number of entries.',
+          );
+        }
+        rows.add({'mac': mac});
+      }
+
+      updated[subcmd] = <String, dynamic>{
+        ...state,
+        'macfilter': blocked
+            ? 'deny'
+            : rows.isEmpty && mode == 'deny'
+                ? 'close'
+                : mode,
+        'maclist': rows,
+      };
+    }
+
+    Object? primaryError;
+    try {
+      for (final subcmd in const ['0', '1']) {
+        await client.saveWirelessMacFilter(subcmd, updated[subcmd]!);
+      }
+
+      for (final subcmd in const ['0', '1']) {
+        final readback = await _wirelessFilterState(subcmd);
+        final rows = readback['maclist'] as List;
+        final present = rows.any(
+          (row) =>
+              row is Map &&
+              _normaliseMac(_text(row['mac'])) == mac,
+        );
+
+        if (blocked) {
+          if (_text(readback['macfilter']) != 'deny' || !present) {
+            throw RouterFeatureUnavailable(
+              'The router did not confirm the block on both Wi-Fi bands.',
+            );
+          }
+        } else if (present) {
+          throw RouterFeatureUnavailable(
+            'The router still reports this device in a Wi-Fi MAC-filter list.',
+          );
+        }
+      }
+
+      await _refreshBlocked();
+      return;
+    } catch (error) {
+      primaryError = error;
+    }
+
+    try {
+      for (final subcmd in const ['0', '1']) {
+        await client.saveWirelessMacFilter(subcmd, originals[subcmd]!);
+      }
+      for (final subcmd in const ['0', '1']) {
+        final restored = await _wirelessFilterState(subcmd);
+        if (!_sameJson(restored, originals[subcmd]!)) {
+          throw RouterFeatureUnavailable(
+            'The router did not confirm an exact Wi-Fi filter rollback.',
+          );
+        }
+      }
+      await _refreshBlocked();
+    } catch (rollbackError) {
+      throw RouterFeatureUnavailable(
+        'The block change failed and automatic rollback could not be verified. Check Wi-Fi Black/White List in the MTN interface before another block attempt. Original error: $primaryError. Rollback error: $rollbackError',
+      );
+    }
+
+    throw RouterFeatureUnavailable(
+      'The block change was not saved. The previous Wi-Fi filter state was restored. $primaryError',
+    );
+  }
+
+  Future<String?> _currentIpForMacOrNull(String mac) async {
+    final response = await client.command(223, authenticated: true);
+    final rows = response['dhcp_list_info'];
+    if (rows is! List) return null;
+    for (final row in rows) {
+      if (row is! Map) continue;
+      if (_normaliseMac(_text(row['mac'])) != mac) continue;
+      final ip = _text(row['ip']);
+      return ip.isEmpty ? null : ip;
+    }
+    return null;
+  }
+
+  Future<String?> _localLanIp() async {
+    Socket? socket;
+    try {
+      socket = await Socket.connect(
+        client.host,
+        80,
+        timeout: const Duration(seconds: 2),
+      );
+      return socket.address.address;
+    } catch (_) {
+      return null;
+    } finally {
+      socket?.destroy();
+    }
+  }
+
+  Map<String, dynamic> _deepMapCopy(Map<String, dynamic> value) {
+    return (jsonDecode(jsonEncode(value)) as Map).map(
+      (key, item) => MapEntry('$key', item),
+    );
+  }
+
+  bool _sameJson(dynamic a, dynamic b) {
+    return jsonEncode(_stableJson(a)) == jsonEncode(_stableJson(b));
+  }
+
+  @override
+  Future<void> setDeviceName(String deviceId, String name) async {
+    final mac = _normaliseMac(deviceId);
+    if (mac.isEmpty) {
+      throw RouterFeatureUnavailable('Invalid device MAC address.');
+    }
+
+    final trimmed = name.trim();
+    if (trimmed.length > 48 || trimmed.contains('\n') || trimmed.contains('\r')) {
+      throw RouterFeatureUnavailable(
+        'Device names must be 48 characters or fewer and use a single line.',
+      );
+    }
+
+    await deviceStore.setFriendlyName(
+      mac,
+      trimmed.isEmpty ? null : trimmed,
+    );
+  }
+
+  @override
+  Future<void> setDevicePolicy(String deviceId, DevicePolicy policy) async {
+    throw RouterFeatureUnavailable(
+      'Quota storage is ready, but automatic enforcement needs verified per-device accounting and a safe block path.',
+    );
+  }
+
+  @override
+  Future<void> setParentControlSchedule(
+    String deviceId,
+    ParentControlSchedule schedule,
+  ) async {
+    await _ensureLogin();
+    final report = await _ensureDiscovery();
+    if (!report.canSchedule) {
+      throw RouterFeatureUnavailable(
+        'Parent Control is not readable on this router yet, so FlyX Control will not replace its rule list.',
+      );
+    }
+    _validateSchedule(schedule);
+
+    final mac = _normaliseMac(deviceId);
+    if (mac.isEmpty) {
+      throw RouterFeatureUnavailable('Invalid device MAC address.');
+    }
+    final ip = await _currentIpForMac(mac);
+    final original = await client.readParentControlRules();
+    final updated = original
+        .map((rule) => Map<String, dynamic>.from(rule))
+        .toList();
+
+    final matching = <int>[];
+    for (var i = 0; i < updated.length; i++) {
+      if (_text(updated[i]['ip']) == ip) matching.add(i);
+    }
+    if (matching.length > 1) {
+      throw RouterFeatureUnavailable(
+        'The router returned more than one Parent Control rule for this device IP. FlyX Control will not guess which one to replace.',
+      );
+    }
+
+    final rule = matching.isEmpty
+        ? <String, dynamic>{}
+        : Map<String, dynamic>.from(updated[matching.single]);
+    rule
+      ..['enableRule'] = schedule.enabled
+      ..['ip'] = ip
+      ..['startTime'] = schedule.startTime
+      ..['endTime'] = schedule.endTime
+      ..['scheduleDays'] = _serializeScheduleDays(schedule.days);
+
+    if (matching.isEmpty) {
+      updated.add(rule);
+    } else {
+      updated[matching.single] = rule;
+    }
+
+    await _saveParentRulesSafely(
+      original: original,
+      updated: updated,
+      verify: (readback) {
+        for (final item in readback) {
+          if (_text(item['ip']) != ip) continue;
+          final enabled = item['enableRule'] == true ||
+              _text(item['enableRule']).toLowerCase() == 'true' ||
+              _text(item['enableRule']) == '1';
+          return enabled == schedule.enabled &&
+              _text(item['startTime']) == schedule.startTime &&
+              _text(item['endTime']) == schedule.endTime &&
+              _text(item['scheduleDays']) ==
+                  _serializeScheduleDays(schedule.days);
+        }
+        return false;
+      },
+    );
+  }
+
+  @override
+  Future<void> deleteParentControlSchedule(String deviceId) async {
+    await _ensureLogin();
+    final report = await _ensureDiscovery();
+    if (!report.canSchedule) {
+      throw RouterFeatureUnavailable(
+        'Parent Control is not readable on this router yet.',
+      );
+    }
+
+    final mac = _normaliseMac(deviceId);
+    if (mac.isEmpty) {
+      throw RouterFeatureUnavailable('Invalid device MAC address.');
+    }
+    final ip = await _currentIpForMac(mac);
+    final original = await client.readParentControlRules();
+    final updated = original
+        .where((rule) => _text(rule['ip']) != ip)
+        .map((rule) => Map<String, dynamic>.from(rule))
+        .toList();
+
+    if (updated.length == original.length) {
+      _parentRules = original;
+      return;
+    }
+
+    await _saveParentRulesSafely(
+      original: original,
+      updated: updated,
+      deletion: true,
+      verify: (readback) =>
+          !readback.any((rule) => _text(rule['ip']) == ip),
+    );
+  }
+
+  Future<String> _currentIpForMac(String mac) async {
+    final response = await client.command(223, authenticated: true);
+    final rows = response['dhcp_list_info'];
+    if (rows is! List) {
+      throw RouterFeatureUnavailable(
+        'The router did not return the connected-device list.',
+      );
+    }
+    for (final row in rows) {
+      if (row is! Map) continue;
+      final normalized = row.map((key, value) => MapEntry('$key', value));
+      if (_normaliseMac(_text(normalized['mac'])) != mac) continue;
+      final ip = _text(normalized['ip']);
+      if (ip.isNotEmpty) return ip;
+    }
+    throw RouterFeatureUnavailable(
+      'This device is not currently connected. Because MTN Parent Control rules are IP-based, reconnect it before changing its schedule.',
+    );
+  }
+
+  Future<void> _saveParentRulesSafely({
+    required List<Map<String, dynamic>> original,
+    required List<Map<String, dynamic>> updated,
+    required bool Function(List<Map<String, dynamic>>) verify,
+    bool deletion = false,
+  }) async {
+    Object? primaryError;
+    try {
+      await client.saveParentControlRules(updated, deletion: deletion);
+      final readback = await client.readParentControlRules();
+      if (!verify(readback)) {
+        throw RouterFeatureUnavailable(
+          'The router did not return the expected Parent Control state after saving.',
+        );
+      }
+      _parentRules = readback;
+      return;
+    } catch (error) {
+      primaryError = error;
+    }
+
+    try {
+      await client.saveParentControlRules(original, deletion: true);
+      final restored = await client.readParentControlRules();
+      _parentRules = restored;
+      if (!_sameParentRules(restored, original)) {
+        throw RouterFeatureUnavailable(
+          'The schedule write failed and the router did not confirm an exact rollback.',
+        );
+      }
+    } catch (rollbackError) {
+      throw RouterFeatureUnavailable(
+        'The schedule write failed and automatic rollback could not be verified. Open the MTN Parent Control page before making another change. Original error: $primaryError. Rollback error: $rollbackError',
+      );
+    }
+
+    throw RouterFeatureUnavailable(
+      'The schedule change was not saved. The previous Parent Control rules were restored. $primaryError',
+    );
+  }
+
+  bool _sameParentRules(
+    List<Map<String, dynamic>> a,
+    List<Map<String, dynamic>> b,
+  ) {
+    return jsonEncode(_stableJson(a)) == jsonEncode(_stableJson(b));
+  }
+
+  dynamic _stableJson(dynamic value) {
+    if (value is Map) {
+      final entries = value.entries.toList()
+        ..sort((a, b) => '${a.key}'.compareTo('${b.key}'));
+      return {
+        for (final entry in entries)
+          '${entry.key}': _stableJson(entry.value),
+      };
+    }
+    if (value is List) {
+      return value.map(_stableJson).toList(growable: false);
+    }
+    return value;
+  }
+
+  void _validateSchedule(ParentControlSchedule schedule) {
+    if (schedule.days.isEmpty ||
+        schedule.days.any((day) => day < 0 || day > 6)) {
+      throw RouterFeatureUnavailable('Choose at least one valid day.');
+    }
+    final start = _timeMinutes(schedule.startTime);
+    final end = _timeMinutes(schedule.endTime);
+    if (start == null || end == null || end <= start) {
+      throw RouterFeatureUnavailable(
+        'Choose a valid schedule where the end time is later than the start time.',
+      );
+    }
+  }
+
+  Set<int> _parseScheduleDays(dynamic value) {
+    return _text(value)
+        .split(',')
+        .map((part) => int.tryParse(part.trim()))
+        .whereType<int>()
+        .where((day) => day >= 0 && day <= 6)
+        .toSet();
+  }
+
+  String _serializeScheduleDays(Set<int> days) {
+    final ordered = days.toList()..sort();
+    return ordered.join(',');
+  }
+
+  int? _timeMinutes(String value) {
+    final parts = value.split(':');
+    if (parts.length != 2) return null;
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    if (hour == null || minute == null) return null;
+    if (hour < 0 || hour > 24 || minute < 0 || minute > 59) return null;
+    if (hour == 24 && minute != 0) return null;
+    return hour * 60 + minute;
+  }
+
+  @override
+  Future<List<UsagePoint>> fetchWeeklyUsage() => usageStore.lastSevenDays();
+
+  @override
+  Future<void> reboot() async {
+    throw RouterFeatureUnavailable(
+      'Reboot is intentionally disabled until its X17U write command is verified on this firmware.',
+    );
+  }
+
+  DeviceKind _inferKind(String hostname) {
+    final value = hostname.toLowerCase();
+    if (RegExp(r'pixel|iphone|galaxy|android|redmi|xiaomi|oppo|vivo|realme|oneplus|tecno|infinix').hasMatch(value)) {
+      return DeviceKind.phone;
+    }
+    if (RegExp(r'ipad|tablet|tab').hasMatch(value)) return DeviceKind.tablet;
+    if (RegExp(r'macbook|laptop|thinkpad|desktop|surface|lenovo|dell|acer|asus|hp-').hasMatch(value)) {
+      return DeviceKind.laptop;
+    }
+    if (RegExp(r'tv|bravia|webos|tizen|chromecast|firetv|roku').hasMatch(value)) {
+      return DeviceKind.tv;
+    }
+    if (RegExp(r'playstation|ps5|ps4|xbox|nintendo|switch').hasMatch(value)) {
+      return DeviceKind.console;
+    }
+    return DeviceKind.unknown;
+  }
+
+  int _wifiSignalPercent(int rssi) {
+    if (rssi >= -50) return 100;
+    if (rssi <= -100) return 0;
+    return ((rssi + 100) * 2).clamp(0, 100).toInt();
+  }
+
+  DateTime? _dateFromEpoch(dynamic value) {
+    final seconds = int.tryParse(_text(value));
+    if (seconds == null || seconds <= 0) return null;
+    try {
+      return DateTime.fromMillisecondsSinceEpoch(seconds * 1000);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  double _number(dynamic value, [double fallback = 0]) {
+    final cleaned = '$value'.replaceAll(RegExp(r'[^0-9.\-]'), '');
+    return double.tryParse(cleaned) ?? fallback;
+  }
+
+  double? _nullableNumber(dynamic value) {
+    final cleaned = '$value'.replaceAll(RegExp(r'[^0-9.\-]'), '');
+    if (cleaned.isEmpty) return null;
+    return double.tryParse(cleaned);
+  }
+
+  double? _positiveNumber(dynamic value) {
+    final number = _nullableNumber(value);
+    if (number == null || number <= 0) return null;
+    return number;
+  }
+
+  int? _kilobytesToBytes(dynamic value) {
+    final kb = _nullableNumber(value);
+    if (kb == null || kb < 0) return null;
+    return (kb * 1024).round();
+  }
+
+  int _int(dynamic value, [int fallback = 0]) {
+    return _number(value, fallback.toDouble()).round();
+  }
+
+  int? _nullableInt(dynamic value) {
+    final number = _nullableNumber(value);
+    return number?.round();
+  }
+
+  int _firstInt(dynamic value, [int fallback = 0]) {
+    final text = _text(value);
+    if (text.isEmpty) return fallback;
+    final first = RegExp(r'-?\d+').firstMatch(text)?.group(0);
+    return int.tryParse(first ?? '') ?? fallback;
+  }
+
+  String _text(dynamic value) => '${value ?? ''}'.trim();
+
+  String _normaliseMac(String value) {
+    final pairs = RegExp(r'[0-9A-Fa-f]{2}')
+        .allMatches(value)
+        .map((match) => match.group(0)!)
+        .toList();
+    if (pairs.length != 6) return '';
+    return pairs.map((part) => part.toUpperCase()).join(':');
+  }
+}
+, ' '),
+            date: '${parts[3]} ${parts[4]}',
+            text: parts.sublist(5).join(' '),
+          ),
+        );
+      }
+    }
+
+    return RouterSmsPage(
+      messages: messages,
+      total: _int(raw['sms_total'], messages.length),
+      page: page,
+      sendFull: _text(raw['send_full']) == '1',
+      receiveFull: _text(raw['receive_full']) == '1',
+      flashFull: _text(raw['sms_flash_full']) == '1',
+      maxLength: _int(settings['maxLen'], 160),
+    );
+  }
+
+  @override
+  Future<void> sendSms(String phoneNumber, String content) async {
+    await _ensureLogin();
+    final phone = phoneNumber.trim();
+    final message = content.trim();
+    if (phone.isEmpty) {
+      throw RouterFeatureUnavailable('Enter a phone number.');
+    }
+    if (message.isEmpty) {
+      throw RouterFeatureUnavailable('Enter a message.');
+    }
+    if (message.runes.any((rune) => rune > 0xffff)) {
+      throw RouterFeatureUnavailable(
+        'The MTN router SMS interface does not support emoji characters.',
+      );
+    }
+
+    final settings = await _safeCommand(16);
+    if (_text(settings['smsSw']) == '0') {
+      throw RouterFeatureUnavailable(
+        'SMS is disabled in the router settings. Enable the router SMS function first.',
+      );
+    }
+    final maxLength = _int(settings['maxLen'], 160);
+    if (message.length > maxLength) {
+      throw RouterFeatureUnavailable(
+        'This router allows up to $maxLength characters per message.',
+      );
+    }
+
+    await client.writeExact(
+      13,
+      {
+        'phoneNo': phone,
+        'content': base64Encode(utf8.encode(message)),
+      },
+    );
+  }
+
+  @override
+  Future<void> markSmsRead(int index) async {
+    await _ensureLogin();
+    await client.writeExact(12, {'index': index});
+  }
+
+  @override
+  Future<void> deleteSms(List<int> indexes) async {
+    await _ensureLogin();
+    if (indexes.isEmpty) return;
+    await client.writeExact(
+      14,
+      {
+        'index': indexes.join(','),
+        'subcmd': 0,
+      },
+    );
+  }
+
+  @override
+  Future<UssdResult> sendUssd(String code) async {
+    await _ensureLogin();
+    final value = code.trim();
+    if (value.isEmpty || !RegExp(r'^[0-9*#]+
+    final report = await _ensureDiscovery();
+    return RouterCapabilities(
+      signal: report.supportsCommand(133),
+      stationList: report.hasStationList,
+      blocking: report.canBlock,
+      scheduling: report.canSchedule,
+      sms: false,
+      ussd: false,
+      wifiSettings: report.supportsCommand(2) && report.supportsCommand(211),
+      reboot: false,
+      perDeviceTraffic: false,
+      qos: false,
+      networkMode: false,
+      discoveredActions:
+          report.verifiedCommands.map((cmd) => 'cmd:$cmd').toList(),
+    );
+  }
+
+  @override
+  Future<void> setBlocked(String deviceId, bool blocked) async {
+    await _ensureLogin();
+    final report = await _ensureDiscovery();
+    if (!report.canBlock) {
+      throw RouterFeatureUnavailable(
+        'Instant Block / Unblock is staged but still locked until the direct Wi-Fi blacklist write path passes its reversible live-router verification.',
+      );
+    }
+
+    final mac = _normaliseMac(deviceId);
+    if (mac.isEmpty) {
+      throw RouterFeatureUnavailable('Invalid device MAC address.');
+    }
+
+    if (blocked) {
+      final targetIp = await _currentIpForMacOrNull(mac);
+      final localIp = await _localLanIp();
+      if (targetIp != null && localIp != null && targetIp == localIp) {
+        throw RouterFeatureUnavailable(
+          'FlyX Control will not block the phone currently being used to manage the router.',
+        );
+      }
+    }
+
+    final originals = <String, Map<String, dynamic>>{};
+    final updated = <String, Map<String, dynamic>>{};
+
+    for (final subcmd in const ['0', '1']) {
+      final state = await _wirelessFilterState(subcmd);
+      originals[subcmd] = _deepMapCopy(state);
+
+      final mode = _text(state['macfilter']);
+      if (mode == 'allow') {
+        throw RouterFeatureUnavailable(
+          'This router is using Wi-Fi whitelist mode. FlyX Control will not change that policy automatically.',
+        );
+      }
+
+      final rows = <Map<String, dynamic>>[
+        for (final row in state['maclist'] as List)
+          if (row is Map)
+            row.map((key, value) => MapEntry('$key', value)),
+      ]..removeWhere(
+          (row) => _normaliseMac(_text(row['mac'])) == mac,
+        );
+
+      if (blocked) {
+        if (rows.length >= 32) {
+          throw RouterFeatureUnavailable(
+            'This Wi-Fi blacklist already contains the maximum supported number of entries.',
+          );
+        }
+        rows.add({'mac': mac});
+      }
+
+      updated[subcmd] = <String, dynamic>{
+        ...state,
+        'macfilter': blocked
+            ? 'deny'
+            : rows.isEmpty && mode == 'deny'
+                ? 'close'
+                : mode,
+        'maclist': rows,
+      };
+    }
+
+    Object? primaryError;
+    try {
+      for (final subcmd in const ['0', '1']) {
+        await client.saveWirelessMacFilter(subcmd, updated[subcmd]!);
+      }
+
+      for (final subcmd in const ['0', '1']) {
+        final readback = await _wirelessFilterState(subcmd);
+        final rows = readback['maclist'] as List;
+        final present = rows.any(
+          (row) =>
+              row is Map &&
+              _normaliseMac(_text(row['mac'])) == mac,
+        );
+
+        if (blocked) {
+          if (_text(readback['macfilter']) != 'deny' || !present) {
+            throw RouterFeatureUnavailable(
+              'The router did not confirm the block on both Wi-Fi bands.',
+            );
+          }
+        } else if (present) {
+          throw RouterFeatureUnavailable(
+            'The router still reports this device in a Wi-Fi MAC-filter list.',
+          );
+        }
+      }
+
+      await _refreshBlocked();
+      return;
+    } catch (error) {
+      primaryError = error;
+    }
+
+    try {
+      for (final subcmd in const ['0', '1']) {
+        await client.saveWirelessMacFilter(subcmd, originals[subcmd]!);
+      }
+      for (final subcmd in const ['0', '1']) {
+        final restored = await _wirelessFilterState(subcmd);
+        if (!_sameJson(restored, originals[subcmd]!)) {
+          throw RouterFeatureUnavailable(
+            'The router did not confirm an exact Wi-Fi filter rollback.',
+          );
+        }
+      }
+      await _refreshBlocked();
+    } catch (rollbackError) {
+      throw RouterFeatureUnavailable(
+        'The block change failed and automatic rollback could not be verified. Check Wi-Fi Black/White List in the MTN interface before another block attempt. Original error: $primaryError. Rollback error: $rollbackError',
+      );
+    }
+
+    throw RouterFeatureUnavailable(
+      'The block change was not saved. The previous Wi-Fi filter state was restored. $primaryError',
+    );
+  }
+
+  Future<String?> _currentIpForMacOrNull(String mac) async {
+    final response = await client.command(223, authenticated: true);
+    final rows = response['dhcp_list_info'];
+    if (rows is! List) return null;
+    for (final row in rows) {
+      if (row is! Map) continue;
+      if (_normaliseMac(_text(row['mac'])) != mac) continue;
+      final ip = _text(row['ip']);
+      return ip.isEmpty ? null : ip;
+    }
+    return null;
+  }
+
+  Future<String?> _localLanIp() async {
+    Socket? socket;
+    try {
+      socket = await Socket.connect(
+        client.host,
+        80,
+        timeout: const Duration(seconds: 2),
+      );
+      return socket.address.address;
+    } catch (_) {
+      return null;
+    } finally {
+      socket?.destroy();
+    }
+  }
+
+  Map<String, dynamic> _deepMapCopy(Map<String, dynamic> value) {
+    return (jsonDecode(jsonEncode(value)) as Map).map(
+      (key, item) => MapEntry('$key', item),
+    );
+  }
+
+  bool _sameJson(dynamic a, dynamic b) {
+    return jsonEncode(_stableJson(a)) == jsonEncode(_stableJson(b));
+  }
+
+  @override
+  Future<void> setDeviceName(String deviceId, String name) async {
+    final mac = _normaliseMac(deviceId);
+    if (mac.isEmpty) {
+      throw RouterFeatureUnavailable('Invalid device MAC address.');
+    }
+
+    final trimmed = name.trim();
+    if (trimmed.length > 48 || trimmed.contains('\n') || trimmed.contains('\r')) {
+      throw RouterFeatureUnavailable(
+        'Device names must be 48 characters or fewer and use a single line.',
+      );
+    }
+
+    await deviceStore.setFriendlyName(
+      mac,
+      trimmed.isEmpty ? null : trimmed,
+    );
+  }
+
+  @override
+  Future<void> setDevicePolicy(String deviceId, DevicePolicy policy) async {
+    throw RouterFeatureUnavailable(
+      'Quota storage is ready, but automatic enforcement needs verified per-device accounting and a safe block path.',
+    );
+  }
+
+  @override
+  Future<void> setParentControlSchedule(
+    String deviceId,
+    ParentControlSchedule schedule,
+  ) async {
+    await _ensureLogin();
+    final report = await _ensureDiscovery();
+    if (!report.canSchedule) {
+      throw RouterFeatureUnavailable(
+        'Parent Control is not readable on this router yet, so FlyX Control will not replace its rule list.',
+      );
+    }
+    _validateSchedule(schedule);
+
+    final mac = _normaliseMac(deviceId);
+    if (mac.isEmpty) {
+      throw RouterFeatureUnavailable('Invalid device MAC address.');
+    }
+    final ip = await _currentIpForMac(mac);
+    final original = await client.readParentControlRules();
+    final updated = original
+        .map((rule) => Map<String, dynamic>.from(rule))
+        .toList();
+
+    final matching = <int>[];
+    for (var i = 0; i < updated.length; i++) {
+      if (_text(updated[i]['ip']) == ip) matching.add(i);
+    }
+    if (matching.length > 1) {
+      throw RouterFeatureUnavailable(
+        'The router returned more than one Parent Control rule for this device IP. FlyX Control will not guess which one to replace.',
+      );
+    }
+
+    final rule = matching.isEmpty
+        ? <String, dynamic>{}
+        : Map<String, dynamic>.from(updated[matching.single]);
+    rule
+      ..['enableRule'] = schedule.enabled
+      ..['ip'] = ip
+      ..['startTime'] = schedule.startTime
+      ..['endTime'] = schedule.endTime
+      ..['scheduleDays'] = _serializeScheduleDays(schedule.days);
+
+    if (matching.isEmpty) {
+      updated.add(rule);
+    } else {
+      updated[matching.single] = rule;
+    }
+
+    await _saveParentRulesSafely(
+      original: original,
+      updated: updated,
+      verify: (readback) {
+        for (final item in readback) {
+          if (_text(item['ip']) != ip) continue;
+          final enabled = item['enableRule'] == true ||
+              _text(item['enableRule']).toLowerCase() == 'true' ||
+              _text(item['enableRule']) == '1';
+          return enabled == schedule.enabled &&
+              _text(item['startTime']) == schedule.startTime &&
+              _text(item['endTime']) == schedule.endTime &&
+              _text(item['scheduleDays']) ==
+                  _serializeScheduleDays(schedule.days);
+        }
+        return false;
+      },
+    );
+  }
+
+  @override
+  Future<void> deleteParentControlSchedule(String deviceId) async {
+    await _ensureLogin();
+    final report = await _ensureDiscovery();
+    if (!report.canSchedule) {
+      throw RouterFeatureUnavailable(
+        'Parent Control is not readable on this router yet.',
+      );
+    }
+
+    final mac = _normaliseMac(deviceId);
+    if (mac.isEmpty) {
+      throw RouterFeatureUnavailable('Invalid device MAC address.');
+    }
+    final ip = await _currentIpForMac(mac);
+    final original = await client.readParentControlRules();
+    final updated = original
+        .where((rule) => _text(rule['ip']) != ip)
+        .map((rule) => Map<String, dynamic>.from(rule))
+        .toList();
+
+    if (updated.length == original.length) {
+      _parentRules = original;
+      return;
+    }
+
+    await _saveParentRulesSafely(
+      original: original,
+      updated: updated,
+      deletion: true,
+      verify: (readback) =>
+          !readback.any((rule) => _text(rule['ip']) == ip),
+    );
+  }
+
+  Future<String> _currentIpForMac(String mac) async {
+    final response = await client.command(223, authenticated: true);
+    final rows = response['dhcp_list_info'];
+    if (rows is! List) {
+      throw RouterFeatureUnavailable(
+        'The router did not return the connected-device list.',
+      );
+    }
+    for (final row in rows) {
+      if (row is! Map) continue;
+      final normalized = row.map((key, value) => MapEntry('$key', value));
+      if (_normaliseMac(_text(normalized['mac'])) != mac) continue;
+      final ip = _text(normalized['ip']);
+      if (ip.isNotEmpty) return ip;
+    }
+    throw RouterFeatureUnavailable(
+      'This device is not currently connected. Because MTN Parent Control rules are IP-based, reconnect it before changing its schedule.',
+    );
+  }
+
+  Future<void> _saveParentRulesSafely({
+    required List<Map<String, dynamic>> original,
+    required List<Map<String, dynamic>> updated,
+    required bool Function(List<Map<String, dynamic>>) verify,
+    bool deletion = false,
+  }) async {
+    Object? primaryError;
+    try {
+      await client.saveParentControlRules(updated, deletion: deletion);
+      final readback = await client.readParentControlRules();
+      if (!verify(readback)) {
+        throw RouterFeatureUnavailable(
+          'The router did not return the expected Parent Control state after saving.',
+        );
+      }
+      _parentRules = readback;
+      return;
+    } catch (error) {
+      primaryError = error;
+    }
+
+    try {
+      await client.saveParentControlRules(original, deletion: true);
+      final restored = await client.readParentControlRules();
+      _parentRules = restored;
+      if (!_sameParentRules(restored, original)) {
+        throw RouterFeatureUnavailable(
+          'The schedule write failed and the router did not confirm an exact rollback.',
+        );
+      }
+    } catch (rollbackError) {
+      throw RouterFeatureUnavailable(
+        'The schedule write failed and automatic rollback could not be verified. Open the MTN Parent Control page before making another change. Original error: $primaryError. Rollback error: $rollbackError',
+      );
+    }
+
+    throw RouterFeatureUnavailable(
+      'The schedule change was not saved. The previous Parent Control rules were restored. $primaryError',
+    );
+  }
+
+  bool _sameParentRules(
+    List<Map<String, dynamic>> a,
+    List<Map<String, dynamic>> b,
+  ) {
+    return jsonEncode(_stableJson(a)) == jsonEncode(_stableJson(b));
+  }
+
+  dynamic _stableJson(dynamic value) {
+    if (value is Map) {
+      final entries = value.entries.toList()
+        ..sort((a, b) => '${a.key}'.compareTo('${b.key}'));
+      return {
+        for (final entry in entries)
+          '${entry.key}': _stableJson(entry.value),
+      };
+    }
+    if (value is List) {
+      return value.map(_stableJson).toList(growable: false);
+    }
+    return value;
+  }
+
+  void _validateSchedule(ParentControlSchedule schedule) {
+    if (schedule.days.isEmpty ||
+        schedule.days.any((day) => day < 0 || day > 6)) {
+      throw RouterFeatureUnavailable('Choose at least one valid day.');
+    }
+    final start = _timeMinutes(schedule.startTime);
+    final end = _timeMinutes(schedule.endTime);
+    if (start == null || end == null || end <= start) {
+      throw RouterFeatureUnavailable(
+        'Choose a valid schedule where the end time is later than the start time.',
+      );
+    }
+  }
+
+  Set<int> _parseScheduleDays(dynamic value) {
+    return _text(value)
+        .split(',')
+        .map((part) => int.tryParse(part.trim()))
+        .whereType<int>()
+        .where((day) => day >= 0 && day <= 6)
+        .toSet();
+  }
+
+  String _serializeScheduleDays(Set<int> days) {
+    final ordered = days.toList()..sort();
+    return ordered.join(',');
+  }
+
+  int? _timeMinutes(String value) {
+    final parts = value.split(':');
+    if (parts.length != 2) return null;
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    if (hour == null || minute == null) return null;
+    if (hour < 0 || hour > 24 || minute < 0 || minute > 59) return null;
+    if (hour == 24 && minute != 0) return null;
+    return hour * 60 + minute;
+  }
+
+  @override
+  Future<List<UsagePoint>> fetchWeeklyUsage() => usageStore.lastSevenDays();
+
+  @override
+  Future<void> reboot() async {
+    throw RouterFeatureUnavailable(
+      'Reboot is intentionally disabled until its X17U write command is verified on this firmware.',
+    );
+  }
+
+  DeviceKind _inferKind(String hostname) {
+    final value = hostname.toLowerCase();
+    if (RegExp(r'pixel|iphone|galaxy|android|redmi|xiaomi|oppo|vivo|realme|oneplus|tecno|infinix').hasMatch(value)) {
+      return DeviceKind.phone;
+    }
+    if (RegExp(r'ipad|tablet|tab').hasMatch(value)) return DeviceKind.tablet;
+    if (RegExp(r'macbook|laptop|thinkpad|desktop|surface|lenovo|dell|acer|asus|hp-').hasMatch(value)) {
+      return DeviceKind.laptop;
+    }
+    if (RegExp(r'tv|bravia|webos|tizen|chromecast|firetv|roku').hasMatch(value)) {
+      return DeviceKind.tv;
+    }
+    if (RegExp(r'playstation|ps5|ps4|xbox|nintendo|switch').hasMatch(value)) {
+      return DeviceKind.console;
+    }
+    return DeviceKind.unknown;
+  }
+
+  int _wifiSignalPercent(int rssi) {
+    if (rssi >= -50) return 100;
+    if (rssi <= -100) return 0;
+    return ((rssi + 100) * 2).clamp(0, 100).toInt();
+  }
+
+  DateTime? _dateFromEpoch(dynamic value) {
+    final seconds = int.tryParse(_text(value));
+    if (seconds == null || seconds <= 0) return null;
+    try {
+      return DateTime.fromMillisecondsSinceEpoch(seconds * 1000);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  double _number(dynamic value, [double fallback = 0]) {
+    final cleaned = '$value'.replaceAll(RegExp(r'[^0-9.\-]'), '');
+    return double.tryParse(cleaned) ?? fallback;
+  }
+
+  double? _nullableNumber(dynamic value) {
+    final cleaned = '$value'.replaceAll(RegExp(r'[^0-9.\-]'), '');
+    if (cleaned.isEmpty) return null;
+    return double.tryParse(cleaned);
+  }
+
+  double? _positiveNumber(dynamic value) {
+    final number = _nullableNumber(value);
+    if (number == null || number <= 0) return null;
+    return number;
+  }
+
+  int? _kilobytesToBytes(dynamic value) {
+    final kb = _nullableNumber(value);
+    if (kb == null || kb < 0) return null;
+    return (kb * 1024).round();
+  }
+
+  int _int(dynamic value, [int fallback = 0]) {
+    return _number(value, fallback.toDouble()).round();
+  }
+
+  int? _nullableInt(dynamic value) {
+    final number = _nullableNumber(value);
+    return number?.round();
+  }
+
+  int _firstInt(dynamic value, [int fallback = 0]) {
+    final text = _text(value);
+    if (text.isEmpty) return fallback;
+    final first = RegExp(r'-?\d+').firstMatch(text)?.group(0);
+    return int.tryParse(first ?? '') ?? fallback;
+  }
+
+  String _text(dynamic value) => '${value ?? ''}'.trim();
+
+  String _normaliseMac(String value) {
+    final pairs = RegExp(r'[0-9A-Fa-f]{2}')
+        .allMatches(value)
+        .map((match) => match.group(0)!)
+        .toList();
+    if (pairs.length != 6) return '';
+    return pairs.map((part) => part.toUpperCase()).join(':');
+  }
+}
+).hasMatch(value)) {
+      throw RouterFeatureUnavailable(
+        'Enter a valid USSD code or reply using digits, * and #.',
+      );
+    }
+    if (value.length > 99) {
+      throw RouterFeatureUnavailable('USSD input cannot exceed 99 characters.');
+    }
+
+    final answer = await client.writeExact(
+      561,
+      {
+        'subcmd': '0',
+        'ussd_code': value,
+      },
+      receiveTimeout: const Duration(seconds: 17),
+      validateMessage: false,
+    );
+
+    final ret = _text(answer['ret']);
+    if (ret.isNotEmpty && ret != '0') {
+      const errors = {
+        '500': 'An error occurred.',
+        '503': 'Invalid USSD parameter.',
+        '504': 'The current network state does not support this operation.',
+        '505': 'Invalid PIN or PUK.',
+        '507': 'The USSD operation timed out.',
+      };
+      throw RouterFeatureUnavailable(errors[ret] ?? 'USSD was not supported by the network.');
+    }
+
+    final status = _text(answer['ussd_st']);
+    if (status.isNotEmpty && !const {'0', '1', '2'}.contains(status)) {
+      const statusErrors = {
+        '3': 'Another local client already responded to this USSD session.',
+        '4': 'This USSD operation is not supported.',
+        '5': 'The USSD network request timed out.',
+      };
+      throw RouterFeatureUnavailable(
+        statusErrors[status] ?? 'The network returned an unknown USSD state.',
+      );
+    }
+
+    final message = _decodeUssdHex(_text(answer['message']));
+    return UssdResult(
+      message: message.isEmpty && status != '1'
+          ? 'USSD session ended.'
+          : message,
+      needsReply: status == '1',
+      status: status,
+    );
+  }
+
+  @override
+  Future<void> cancelUssd() async {
+    await _ensureLogin();
+    await client.writeExact(
+      561,
+      const {'subcmd': '1'},
+      receiveTimeout: const Duration(seconds: 17),
+      validateMessage: false,
+    );
+  }
+
+  String _decodeSmsValue(String value) {
+    if (value.isEmpty) return '';
+    try {
+      return utf8.decode(base64Decode(value), allowMalformed: true);
+    } catch (_) {
+      return '';
+    }
+  }
+
+  String _decodeUssdHex(String value) {
+    if (value.isEmpty) return '';
+    final buffer = StringBuffer();
+    final chunks = RegExp(r'[A-Fa-f0-9]{1,4}').allMatches(value);
+    for (final match in chunks) {
+      final part = match.group(0)!;
+      if (part == '0009' || part == '0000') continue;
+      final code = int.tryParse(part, radix: 16);
+      if (code != null) buffer.write(String.fromCharCode(code));
+    }
+    return buffer.toString();
+  }
+
+  @override
   Future<RouterCapabilities> capabilities() async {
     final report = await _ensureDiscovery();
     return RouterCapabilities(
