@@ -5,6 +5,7 @@ import '../state/app_scope.dart';
 import '../widgets/common.dart';
 import 'connect_router_screen.dart';
 import 'messages_screen.dart';
+import 'network_mode_screen.dart';
 import 'ussd_screen.dart';
 import 'wifi_settings_screen.dart';
 
@@ -117,7 +118,29 @@ class MoreScreen extends StatelessWidget {
                   enabled: true,
                 ),
                 const Divider(height: 24, indent: 46),
-                _FeatureRow(icon: Icons.restart_alt_rounded, title: 'Restart FlyX', subtitle: 'Reboot the router safely', enabled: c.reboot, onTap: c.reboot ? () => _reboot(context) : null),
+                _FeatureRow(
+                  icon: Icons.cell_tower_rounded,
+                  title: 'Network mode',
+                  subtitle: c.networkMode
+                      ? 'Read the X17U mobile-network configuration'
+                      : 'Network-mode endpoint not detected',
+                  enabled: c.networkMode,
+                  onTap: c.networkMode
+                      ? () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const NetworkModeScreen(),
+                            ),
+                          )
+                      : null,
+                ),
+                const Divider(height: 24, indent: 46),
+                _FeatureRow(
+                  icon: Icons.restart_alt_rounded,
+                  title: 'Restart FlyX',
+                  subtitle: 'Reboot the router safely',
+                  enabled: c.reboot,
+                  onTap: c.reboot ? () => _reboot(context) : null,
+                ),
               ],
             ),
           ),
@@ -174,6 +197,15 @@ class MoreScreen extends StatelessWidget {
     if (confirmed != true || !context.mounted) return;
     try {
       await AppScope.of(context).reboot();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Restart command sent. FlyX will be unavailable briefly while it boots.',
+            ),
+          ),
+        );
+      }
     } catch (e) {
       if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
     }
