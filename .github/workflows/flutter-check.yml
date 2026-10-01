@@ -54,3 +54,13 @@ jobs:
           name: flyx-control-debug-apk
           path: build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
+
+      - name: Build release staging APK
+        run: flutter build apk --release
+
+      - name: Upload release staging APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: flyx-control-release-staging-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
