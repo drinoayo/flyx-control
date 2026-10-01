@@ -18,6 +18,7 @@ It connects directly to the router over the local network and only exposes contr
 - Router restart
 - Local daily/weekly usage and reliability history
 - Forget locally remembered offline devices
+- System, light and dark appearance modes
 
 ## Important limitations
 
