@@ -406,7 +406,7 @@ class DeviceDetailScreen extends StatelessWidget {
           ],
         ),
       );
-      if (yes != true) return;
+      if (yes != true || !context.mounted) return;
     }
 
     try {
