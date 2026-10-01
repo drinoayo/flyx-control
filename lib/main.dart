@@ -10,8 +10,9 @@ import 'services/zlt_client.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  RouterRepository repository = MockRouterRepository();
   final saved = await const SecureRouterStore().load();
+  final configured = saved != null;
+  RouterRepository repository = MockRouterRepository();
 
   if (saved != null) {
     repository = ZltRouterRepository(
@@ -21,5 +22,10 @@ Future<void> main() async {
     );
   }
 
-  runApp(FlyxApp(repository: repository));
+  runApp(
+    FlyxApp(
+      repository: repository,
+      initiallyConfigured: configured,
+    ),
+  );
 }
