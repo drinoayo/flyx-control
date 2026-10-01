@@ -6,6 +6,10 @@ import '../models/models.dart';
 import '../state/app_scope.dart';
 import '../widgets/common.dart';
 import 'device_detail_screen.dart';
+import 'messages_screen.dart';
+import 'network_screen.dart';
+import 'ussd_screen.dart';
+import 'wifi_settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -53,25 +57,45 @@ class _HomeScreenState extends State<HomeScreen> {
                 QuickAction(
                   icon: Icons.wifi_rounded,
                   label: 'Wi-Fi',
-                  onTap: () => _notReady(context, 'Wi-Fi controls'),
+                  onTap: () => _openFeature(
+                    context,
+                    enabled: controller.capabilities.wifiSettings,
+                    page: const WifiSettingsScreen(),
+                    name: 'Wi-Fi controls',
+                  ),
                 ),
                 const SizedBox(width: 10),
                 QuickAction(
                   icon: Icons.sms_outlined,
                   label: 'Messages',
-                  onTap: () => _notReady(context, 'SMS inbox'),
+                  onTap: () => _openFeature(
+                    context,
+                    enabled: controller.capabilities.sms,
+                    page: const MessagesScreen(),
+                    name: 'SMS inbox',
+                  ),
                 ),
                 const SizedBox(width: 10),
                 QuickAction(
                   icon: Icons.dialpad_rounded,
                   label: 'USSD',
-                  onTap: () => _notReady(context, 'USSD'),
+                  onTap: () => _openFeature(
+                    context,
+                    enabled: controller.capabilities.ussd,
+                    page: const UssdScreen(),
+                    name: 'USSD',
+                  ),
                 ),
                 const SizedBox(width: 10),
                 QuickAction(
                   icon: Icons.radar_rounded,
                   label: 'Signal',
-                  onTap: () => _notReady(context, 'Signal Finder'),
+                  onTap: () => _openFeature(
+                    context,
+                    enabled: controller.capabilities.signal,
+                    page: const NetworkScreen(),
+                    name: 'Signal',
+                  ),
                 ),
               ],
             ),
@@ -193,10 +217,19 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _notReady(BuildContext context, String feature) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$feature is already in the product map and will be wired to the X17U capability scan.')),
-    );
+  void _openFeature(
+    BuildContext context, {
+    required bool enabled,
+    required Widget page,
+    required String name,
+  }) {
+    if (!enabled) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$name is not available on this router session.')),
+      );
+      return;
+    }
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
   }
 }
 
