@@ -371,7 +371,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                                   : FlyxColors.mutedFor(context),
                             ),
                             if (message.unread)
-                              const Positioned(
+                              Positioned(
                                 right: -3,
                                 top: -3,
                                 child: CircleAvatar(
@@ -406,7 +406,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                                   color: FlyxColors.accentFor(context).withValues(alpha: .10),
                                   borderRadius: BorderRadius.circular(99),
                                 ),
-                                child: const Text(
+                                child: Text(
                                   'UNREAD',
                                   style: TextStyle(
                                     color: FlyxColors.accentFor(context),
