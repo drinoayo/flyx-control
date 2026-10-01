@@ -180,11 +180,13 @@ class ZltClient {
     int cmd,
     Map<String, dynamic> fields, {
     bool includeSuccess = false,
+    Duration? receiveTimeout,
   }) {
     return _writeExact(
       cmd,
       fields,
       includeSuccess: includeSuccess,
+      receiveTimeout: receiveTimeout,
       allowReauth: true,
     );
   }
@@ -193,6 +195,7 @@ class ZltClient {
     int cmd,
     Map<String, dynamic> fields, {
     required bool includeSuccess,
+    required Duration? receiveTimeout,
     required bool allowReauth,
   }) async {
     if (!isAuthenticated) {
@@ -216,14 +219,17 @@ class ZltClient {
       );
     }
 
-    final answer = await _request({
-      ...fields,
-      'cmd': cmd,
-      'method': 'POST',
-      if (includeSuccess) 'success': true,
-      'sessionId': _sessionId!,
-      'token': token,
-    });
+    final answer = await _request(
+      {
+        ...fields,
+        'cmd': cmd,
+        'method': 'POST',
+        if (includeSuccess) 'success': true,
+        'sessionId': _sessionId!,
+        'token': token,
+      },
+      receiveTimeout: receiveTimeout,
+    );
 
     if (_isNoAuth(answer)) {
       _sessionId = null;
@@ -233,6 +239,7 @@ class ZltClient {
           cmd,
           fields,
           includeSuccess: includeSuccess,
+          receiveTimeout: receiveTimeout,
           allowReauth: false,
         );
       }
@@ -460,11 +467,17 @@ class ZltClient {
     );
   }
 
-  Future<Map<String, dynamic>> _request(Map<String, dynamic> payload) async {
+  Future<Map<String, dynamic>> _request(
+    Map<String, dynamic> payload, {
+    Duration? receiveTimeout,
+  }) async {
     final response = await _dio.post<dynamic>(
       endpoint,
       data: jsonEncode(payload),
-      options: Options(headers: _headers),
+      options: Options(
+        headers: _headers,
+        receiveTimeout: receiveTimeout,
+      ),
     );
 
     final status = response.statusCode;
