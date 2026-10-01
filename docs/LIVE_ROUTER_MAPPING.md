@@ -366,3 +366,10 @@ The stock MTN Parent Control interface exposes whole-hour choices, but cmd 385 s
 The Android beta editor now allows exact-minute start and end times, for example 06:00-06:10. The app still performs exact cmd 385 readback verification after saving, so a firmware that rejects or normalizes minute-level values will cause the change to fail verification rather than silently being accepted.
 
 Minute-level storage on the tested firmware should be considered beta until one disabled rule with a non-zero minute value is saved and read back successfully from the real router.
+
+
+## Android beta: minute-level enforcement confirmed
+
+A minute-level Parent Control schedule created from FlyX Control was accepted by the router and entered its active blocked window successfully. This confirms that the tested firmware does not merely store non-zero minute values: it enforces them.
+
+The end-of-window recovery for this minute-level test has not yet been observed, so exact minute-level recovery timing remains to be confirmed separately.
