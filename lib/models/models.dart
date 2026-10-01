@@ -306,7 +306,7 @@ class NetworkSnapshot {
         ConnectionGrade.poor => 'Poor',
       };
 
-  Color gradeColor => switch (grade) {
+  Color get gradeColor => switch (grade) {
         ConnectionGrade.excellent => const Color(0xFF62D98B),
         ConnectionGrade.good => const Color(0xFF8DDB62),
         ConnectionGrade.fair => const Color(0xFFF6B64D),
