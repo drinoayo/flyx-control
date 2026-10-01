@@ -452,9 +452,12 @@ class ZltDiscoveryReport {
 
   bool get hasWifiClientDetails => hasWifi24Clients || hasWifi5Clients;
 
-  /// Blocking stays disabled until the router actually returns readable filter
-  /// state. Merely accepting cmd 23/28/30 with an empty message is not enough.
-  bool get canBlock => hasFilterRules && hasFilterModes;
+  /// Keep generic Block/Unblock disabled even if cmd 23/28/30 materialize
+  /// readable state. The exact blacklist lifecycle still needs one controlled
+  /// real-router verification before this capability can be exposed.
+  bool get canBlock => false;
+
+  bool get hasReadableMacFilterState => hasFilterRules && hasFilterModes;
 
   /// Scheduling is safe to expose only when cmd 385 returns a real datas list,
   /// including an explicit empty list after the last rule is deleted.
