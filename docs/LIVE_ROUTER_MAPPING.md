@@ -373,3 +373,33 @@ Minute-level storage on the tested firmware should be considered beta until one 
 A minute-level Parent Control schedule created from FlyX Control was accepted by the router and entered its active blocked window successfully. This confirms that the tested firmware does not merely store non-zero minute values: it enforces them.
 
 The managed phone then regained access automatically when the minute-level end time was reached. This confirms end-to-end minute-level schedule behavior on the tested firmware: exact-minute start, exact-minute enforcement window, and automatic recovery at the configured end time.
+
+
+## Stock UI MAC filter mapping
+
+The stock MTN frontend exposes a separate Filtering Rules / MAC Filter path that is distinct from Parent Control.
+
+Confirmed frontend wrappers and behavior:
+
+- getMACData: cmd 23 GET with getfun=true;
+- setMACData: cmd 23 POST with the complete datas array;
+- getIPFilterMode: cmd 28 GET;
+- setIPFilterMode: cmd 28 POST;
+- setMACMode: cmd 30 POST;
+- applyFilter: cmd 20 POST after a successful rule save.
+
+The global UI mode labels are Whitelist=0 and Blacklist=1. When Blacklist is selected, the frontend writes mode rows with acceptAll=true for both IPV4 and IPV6. When Whitelist is selected, acceptAll=false.
+
+MAC rule objects include at least:
+
+- enableRule;
+- enableLink;
+- ippro;
+- mac;
+- remark.
+
+The stock UI sets enableLink=false for newly added MAC rules while in Blacklist mode, and enableLink=true while in Whitelist mode.
+
+The current router reports still return no readable datas array for cmd 23/28/30 while no MAC-filter rules have been configured. This may be another materialized-state behavior similar to Parent Control, but that is not yet verified.
+
+Do not enable FlyX Control's generic Block/Unblock path from this mapping alone. The safe next test is through the stock MTN Filtering Rules UI using a deliberately nonexistent MAC address in confirmed Blacklist mode, followed by read-only cmd 23/28/30 discovery. This avoids disconnecting a real client while determining whether the firmware begins exposing readable filter state after the first rule is created.
