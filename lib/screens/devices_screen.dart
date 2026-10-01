@@ -43,9 +43,11 @@ class _DevicesScreenState extends State<DevicesScreen> {
                 width: 42,
                 height: 42,
                 decoration: BoxDecoration(
-                  color: FlyxColors.surface,
+                  color: Theme.of(context).colorScheme.surface,
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: FlyxColors.line),
+                  border: Border.all(
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                  ),
                 ),
                 child: IconButton(
                   tooltip: 'Refresh',
@@ -150,16 +152,22 @@ class _FilterChip extends StatelessWidget {
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
         decoration: BoxDecoration(
-          color: selected ? FlyxColors.yellow : FlyxColors.surface,
+          color: selected
+              ? FlyxColors.yellow
+              : Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(99),
           border: Border.all(
-            color: selected ? FlyxColors.yellow : FlyxColors.line,
+            color: selected
+                ? FlyxColors.yellow
+                : Theme.of(context).colorScheme.outlineVariant,
           ),
         ),
         child: Text(
           label,
           style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: selected ? FlyxColors.ink : Colors.white,
+                color: selected
+                    ? FlyxColors.ink
+                    : Theme.of(context).colorScheme.onSurface,
               ),
         ),
       ),
