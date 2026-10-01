@@ -103,7 +103,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
                 : ListView.separated(
                     padding: const EdgeInsets.fromLTRB(18, 0, 18, 28),
                     itemCount: visible.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                    separatorBuilder: (_, _) => const SizedBox(height: 10),
                     itemBuilder: (context, index) => _DeviceCard(
                       device: visible[index],
                       perDeviceTraffic:
