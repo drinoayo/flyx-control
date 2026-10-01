@@ -1381,7 +1381,7 @@ class ZltRouterRepository implements RouterRepository {
             index: index,
             unread: parts[1] == '0',
             phoneNumber: parts[2].replaceAll(r'$', ' '),
-            date: parts[3] + ' ' + parts[4],
+            date: '${parts[3]} ${parts[4]}',
             text: parts.sublist(5).join(' '),
           ),
         );
