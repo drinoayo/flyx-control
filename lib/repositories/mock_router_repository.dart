@@ -7,6 +7,7 @@ import 'router_repository.dart';
 class MockRouterRepository implements RouterRepository {
   final Random _random = Random(4);
   int _tick = 0;
+  bool _wifiOptimization = false;
   WifiBandSettings _wifi24 = const WifiBandSettings(
     band: WifiBand.twoFourGhz,
     ssid: 'FlyX-2.4G',
@@ -200,34 +201,115 @@ class MockRouterRepository implements RouterRepository {
 
   @override
   Future<WifiSettingsSnapshot> fetchWifiSettings() async =>
-      WifiSettingsSnapshot(twoFourGhz: _wifi24, fiveGhz: _wifi5);
+      WifiSettingsSnapshot(
+        twoFourGhz: _wifi24,
+        fiveGhz: _wifi5,
+        optimizationEnabled: _wifiOptimization,
+      );
 
   @override
   Future<WifiUpdateResult> updateWifiPrimary(
     WifiBand band, {
     String? ssid,
     String? password,
+    bool? enabled,
     bool? broadcast,
+    String? authenticationType,
   }) async {
     final current = band == WifiBand.twoFourGhz ? _wifi24 : _wifi5;
-    final next = WifiBandSettings(
+    final next = _copyWifi(
+      current,
+      ssid: ssid,
+      enabled: enabled,
+      broadcast: broadcast,
+      authenticationType: authenticationType,
+    );
+    _setMockWifi(band, next);
+    return WifiUpdateResult(
+      reconnectExpected:
+          ssid != null ||
+          (password?.isNotEmpty ?? false) ||
+          enabled != null ||
+          authenticationType != null,
+    );
+  }
+
+  @override
+  Future<WifiUpdateResult> updateWifiRadio(
+    WifiBand band, {
+    String? channel,
+    String? wifiModeCode,
+    String? bandwidthCode,
+    double? txPowerPercent,
+    int? maxClients,
+    bool? dfsEnabled,
+  }) async {
+    final current = band == WifiBand.twoFourGhz ? _wifi24 : _wifi5;
+    _setMockWifi(
+      band,
+      _copyWifi(
+        current,
+        channel: channel,
+        wifiModeCode: wifiModeCode,
+        bandwidthCode: bandwidthCode,
+        txPowerPercent: txPowerPercent,
+        maxClients: maxClients,
+        dfsEnabled: dfsEnabled,
+      ),
+    );
+    return const WifiUpdateResult();
+  }
+
+  @override
+  Future<void> setWifiWps(WifiBand band, bool enabled) async {
+    final current = band == WifiBand.twoFourGhz ? _wifi24 : _wifi5;
+    _setMockWifi(band, _copyWifi(current, wpsEnabled: enabled));
+  }
+
+  @override
+  Future<WifiUpdateResult> setWifiOptimization(bool enabled) async {
+    _wifiOptimization = enabled;
+    return WifiUpdateResult(reconnectExpected: enabled);
+  }
+
+  void _setMockWifi(WifiBand band, WifiBandSettings value) {
+    if (band == WifiBand.twoFourGhz) {
+      _wifi24 = value;
+    } else {
+      _wifi5 = value;
+    }
+  }
+
+  WifiBandSettings _copyWifi(
+    WifiBandSettings current, {
+    String? ssid,
+    bool? enabled,
+    bool? broadcast,
+    String? channel,
+    String? bandwidthCode,
+    double? txPowerPercent,
+    int? maxClients,
+    bool? wpsEnabled,
+    String? authenticationType,
+    String? wifiModeCode,
+    bool? dfsEnabled,
+  }) {
+    return WifiBandSettings(
       band: current.band,
       ssid: ssid ?? current.ssid,
-      enabled: current.enabled,
+      enabled: enabled ?? current.enabled,
       broadcast: broadcast ?? current.broadcast,
-      channel: current.channel,
-      bandwidthCode: current.bandwidthCode,
-      txPowerPercent: current.txPowerPercent,
-      maxClients: current.maxClients,
-      wpsEnabled: current.wpsEnabled,
-    );
-    if (band == WifiBand.twoFourGhz) {
-      _wifi24 = next;
-    } else {
-      _wifi5 = next;
-    }
-    return WifiUpdateResult(
-      reconnectExpected: ssid != null || (password?.isNotEmpty ?? false),
+      channel: channel ?? current.channel,
+      bandwidthCode: bandwidthCode ?? current.bandwidthCode,
+      txPowerPercent: txPowerPercent ?? current.txPowerPercent,
+      maxClients: maxClients ?? current.maxClients,
+      wpsEnabled: wpsEnabled ?? current.wpsEnabled,
+      authenticationType:
+          authenticationType ?? current.authenticationType,
+      wifiModeCode: wifiModeCode ?? current.wifiModeCode,
+      countryCode: current.countryCode,
+      maxClientsLimit: current.maxClientsLimit,
+      dfsEnabled: dfsEnabled ?? current.dfsEnabled,
     );
   }
 
