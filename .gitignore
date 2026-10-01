@@ -13,3 +13,9 @@ ios/Pods/
 ios/.symlinks/
 *.iml
 flyx-report.json
+
+# Android release signing material (owner-held, never commit)
+*.jks
+*.keystore
+android/key.properties
+signing/
