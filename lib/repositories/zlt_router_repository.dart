@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import '../models/models.dart';
 import '../services/device_store.dart';
@@ -427,6 +428,26 @@ class ZltRouterRepository implements RouterRepository {
 
   Future<void> _refreshBlocked() async {
     try {
+      final blocked = <String>{};
+      for (final subcmd in const ['0', '1']) {
+        final state = await _wirelessFilterState(subcmd);
+        if (_text(state['macfilter']) != 'deny') continue;
+        final rows = state['maclist'];
+        if (rows is! List) continue;
+        for (final row in rows) {
+          if (row is! Map) continue;
+          final mac = _normaliseMac(_text(row['mac']));
+          if (mac.isNotEmpty) blocked.add(mac);
+        }
+      }
+      _blockedMacs = blocked;
+      _blockedLabels = const {};
+      return;
+    } catch (_) {
+      // Fall back to the generic filter table on firmware that exposes it.
+    }
+
+    try {
       final rules = await _filterRules();
       final blocked = <String>{};
       final labels = <String, String>{};
@@ -443,8 +464,36 @@ class ZltRouterRepository implements RouterRepository {
       _blockedMacs = blocked;
       _blockedLabels = labels;
     } catch (_) {
-      // The user's current MTN firmware returns no readable rules for cmd 23.
+      // Block state remains unchanged if neither filter source is readable.
     }
+  }
+
+  Future<Map<String, dynamic>> _wirelessFilterState(String subcmd) async {
+    final raw = await client.readWirelessMacFilter(subcmd);
+    if (raw == null) {
+      return <String, dynamic>{
+        'macfilter': 'close',
+        'maclist': <Map<String, dynamic>>[],
+      };
+    }
+
+    final mode = _text(raw['macfilter']);
+    final rows = raw['maclist'];
+    if (!const {'close', 'deny', 'allow'}.contains(mode) || rows is! List) {
+      throw RouterFeatureUnavailable(
+        'The router returned an unexpected Wi-Fi MAC-filter state.',
+      );
+    }
+
+    return <String, dynamic>{
+      ...raw,
+      'macfilter': mode,
+      'maclist': [
+        for (final row in rows)
+          if (row is Map)
+            row.map((key, value) => MapEntry('$key', value)),
+      ],
+    };
   }
 
   Future<List<Map<String, dynamic>>> _filterRules() async {
@@ -515,7 +564,7 @@ class ZltRouterRepository implements RouterRepository {
     final report = await _ensureDiscovery();
     if (!report.canBlock) {
       throw RouterFeatureUnavailable(
-        'Blocking is not enabled yet because this MTN firmware accepts the filter commands but does not expose readable filter state. FlyX Control will not risk locking you out.',
+        'Instant Block / Unblock is staged but still locked until the direct Wi-Fi blacklist write path passes its reversible live-router verification.',
       );
     }
 
@@ -524,49 +573,153 @@ class ZltRouterRepository implements RouterRepository {
       throw RouterFeatureUnavailable('Invalid device MAC address.');
     }
 
-    final rules = (await _filterRules())
-        .where((rule) => _normaliseMac(_text(rule['mac'])) != mac)
-        .toList();
-
     if (blocked) {
-      final existingAddresses = rules
-          .map((rule) => _normaliseMac(_text(rule['mac'])))
-          .where((value) => value.isNotEmpty)
-          .toSet();
-      if (existingAddresses.length >= 32) {
+      final targetIp = await _currentIpForMacOrNull(mac);
+      final localIp = await _localLanIp();
+      if (targetIp != null && localIp != null && targetIp == localIp) {
         throw RouterFeatureUnavailable(
-          'This router already has the maximum number of blocked devices.',
+          'FlyX Control will not block the phone currently being used to manage the router.',
         );
-      }
-
-      final mode = {
-        'datas': [
-          for (final family in const ['IPV4', 'IPV6'])
-            {
-              'enableRule': true,
-              'acceptAll': true,
-              'ippro': family,
-            },
-        ],
-      };
-
-      await client.write(28, mode);
-      await client.write(30, mode);
-
-      for (final family in const ['IPV4', 'IPV6']) {
-        rules.add({
-          'ippro': family,
-          'mac': mac,
-          'remark': _blockedLabels[mac] ?? '',
-          'enableRule': true,
-          'enableLink': false,
-        });
       }
     }
 
-    await client.write(23, {'datas': rules});
-    await client.write(20, const {});
-    await _refreshBlocked();
+    final originals = <String, Map<String, dynamic>>{};
+    final updated = <String, Map<String, dynamic>>{};
+
+    for (final subcmd in const ['0', '1']) {
+      final state = await _wirelessFilterState(subcmd);
+      originals[subcmd] = _deepMapCopy(state);
+
+      final mode = _text(state['macfilter']);
+      if (mode == 'allow') {
+        throw RouterFeatureUnavailable(
+          'This router is using Wi-Fi whitelist mode. FlyX Control will not change that policy automatically.',
+        );
+      }
+
+      final rows = <Map<String, dynamic>>[
+        for (final row in state['maclist'] as List)
+          if (row is Map)
+            row.map((key, value) => MapEntry('$key', value)),
+      ]..removeWhere(
+          (row) => _normaliseMac(_text(row['mac'])) == mac,
+        );
+
+      if (blocked) {
+        if (rows.length >= 32) {
+          throw RouterFeatureUnavailable(
+            'This Wi-Fi blacklist already contains the maximum supported number of entries.',
+          );
+        }
+        rows.add({'mac': mac});
+      }
+
+      updated[subcmd] = <String, dynamic>{
+        ...state,
+        'macfilter': blocked
+            ? 'deny'
+            : rows.isEmpty && mode == 'deny'
+                ? 'close'
+                : mode,
+        'maclist': rows,
+      };
+    }
+
+    Object? primaryError;
+    try {
+      for (final subcmd in const ['0', '1']) {
+        await client.saveWirelessMacFilter(subcmd, updated[subcmd]!);
+      }
+
+      for (final subcmd in const ['0', '1']) {
+        final readback = await _wirelessFilterState(subcmd);
+        final rows = readback['maclist'] as List;
+        final present = rows.any(
+          (row) =>
+              row is Map &&
+              _normaliseMac(_text(row['mac'])) == mac,
+        );
+
+        if (blocked) {
+          if (_text(readback['macfilter']) != 'deny' || !present) {
+            throw RouterFeatureUnavailable(
+              'The router did not confirm the block on both Wi-Fi bands.',
+            );
+          }
+        } else if (present) {
+          throw RouterFeatureUnavailable(
+            'The router still reports this device in a Wi-Fi MAC-filter list.',
+          );
+        }
+      }
+
+      await _refreshBlocked();
+      return;
+    } catch (error) {
+      primaryError = error;
+    }
+
+    try {
+      for (final subcmd in const ['0', '1']) {
+        await client.saveWirelessMacFilter(subcmd, originals[subcmd]!);
+      }
+      for (final subcmd in const ['0', '1']) {
+        final restored = await _wirelessFilterState(subcmd);
+        if (!_sameJson(restored, originals[subcmd]!)) {
+          throw RouterFeatureUnavailable(
+            'The router did not confirm an exact Wi-Fi filter rollback.',
+          );
+        }
+      }
+      await _refreshBlocked();
+    } catch (rollbackError) {
+      throw RouterFeatureUnavailable(
+        'The block change failed and automatic rollback could not be verified. Check Wi-Fi Black/White List in the MTN interface before another block attempt. Original error: $primaryError. Rollback error: $rollbackError',
+      );
+    }
+
+    throw RouterFeatureUnavailable(
+      'The block change was not saved. The previous Wi-Fi filter state was restored. $primaryError',
+    );
+  }
+
+  Future<String?> _currentIpForMacOrNull(String mac) async {
+    final response = await client.command(223, authenticated: true);
+    final rows = response['dhcp_list_info'];
+    if (rows is! List) return null;
+    for (final row in rows) {
+      if (row is! Map) continue;
+      if (_normaliseMac(_text(row['mac'])) != mac) continue;
+      final ip = _text(row['ip']);
+      return ip.isEmpty ? null : ip;
+    }
+    return null;
+  }
+
+  Future<String?> _localLanIp() async {
+    Socket? socket;
+    try {
+      socket = await Socket.connect(
+        client.host,
+        80,
+        timeout: const Duration(seconds: 2),
+      );
+      return socket.address.address;
+    } catch (_) {
+      return null;
+    } finally {
+      socket?.destroy();
+    }
+  }
+
+  Map<String, dynamic> _deepMapCopy(Map<String, dynamic> value) {
+    return (jsonDecode(jsonEncode(value)) as Map).map(
+      (key, item) => MapEntry('$key', item),
+    );
+  }
+
+  bool _sameJson(dynamic a, dynamic b) {
+    return jsonEncode(_stableJson(a)) == jsonEncode(_stableJson(b));
   }
 
   @override
