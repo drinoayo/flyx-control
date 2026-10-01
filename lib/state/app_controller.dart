@@ -119,6 +119,31 @@ class AppController extends ChangeNotifier {
     return repository.fetchWifiSettings();
   }
 
+  Future<RouterSmsPage> fetchSmsInbox({int page = 1}) {
+    return repository.fetchSmsInbox(page: page);
+  }
+
+  Future<void> sendSms(String phoneNumber, String content) {
+    return _runAction(() => repository.sendSms(phoneNumber, content));
+  }
+
+  Future<void> markSmsRead(int index) {
+    return _runAction(() => repository.markSmsRead(index));
+  }
+
+  Future<void> deleteSms(List<int> indexes) {
+    return _runAction(() => repository.deleteSms(indexes));
+  }
+
+  Future<UssdResult> sendUssd(String code) {
+    return repository.sendUssd(code);
+  }
+
+  Future<void> cancelUssd() {
+    return repository.cancelUssd();
+  }
+
+
   Future<WifiUpdateResult> updateWifiPrimary(
     WifiBand band, {
     String? ssid,
@@ -226,6 +251,21 @@ class AppController extends ChangeNotifier {
 
   Future<void> reboot() async {
     await _run(repository.reboot);
+  }
+
+  Future<void> _runAction(Future<void> Function() task) async {
+    busy = true;
+    error = null;
+    notifyListeners();
+    try {
+      await task();
+    } catch (e) {
+      error = e.toString();
+      rethrow;
+    } finally {
+      busy = false;
+      notifyListeners();
+    }
   }
 
   Future<void> _run(Future<void> Function() task) async {
