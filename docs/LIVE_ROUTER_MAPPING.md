@@ -403,3 +403,23 @@ The stock UI sets enableLink=false for newly added MAC rules while in Blacklist 
 The current router reports still return no readable datas array for cmd 23/28/30 while no MAC-filter rules have been configured. This may be another materialized-state behavior similar to Parent Control, but that is not yet verified.
 
 Do not enable FlyX Control's generic Block/Unblock path from this mapping alone. The safe next test is through the stock MTN Filtering Rules UI using a deliberately nonexistent MAC address in confirmed Blacklist mode, followed by read-only cmd 23/28/30 discovery. This avoids disconnecting a real client while determining whether the firmware begins exposing readable filter state after the first rule is created.
+
+
+## Wi-Fi MAC blacklist path (cmd 278)
+
+The stock MTN Wi-Fi device page exposes a more direct per-band MAC filter than the generic Filtering Rules page.
+
+Confirmed stock-UI behavior:
+
+- cmd 278 GET/POST;
+- subcmd "0" = 5 GHz;
+- subcmd "1" = 2.4 GHz;
+- datas.macfilter is one of "close", "deny" or "allow";
+- datas.maclist is the MAC list;
+- "deny" is the stock UI's Black List mode;
+- "allow" is the stock UI's White List mode;
+- the Wi-Fi UI saves cmd 278 directly and then reads cmd 278 back; it does not call cmd 20 for this path.
+
+This is a better candidate for instant Block/Unblock than the generic cmd 23/28/30 path, because it is the exact blacklist used from the connected-device Wi-Fi page.
+
+A reversible verification tool now tests both bands using only a dummy locally administered MAC, confirms readback, and restores the original state. Production Block/Unblock remains gated until that live test passes.
