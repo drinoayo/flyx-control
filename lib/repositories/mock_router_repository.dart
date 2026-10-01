@@ -353,6 +353,17 @@ class MockRouterRepository implements RouterRepository {
   Future<void> cancelUssd() async {}
 
   @override
+  Future<RouterNetworkModeSnapshot> fetchNetworkMode() async {
+    return const RouterNetworkModeSnapshot(
+      displayMode: 'Automatic',
+      fields: {
+        'networkMode': 'Automatic',
+        'networkType': '5G NSA',
+      },
+    );
+  }
+
+  @override
   Future<RouterCapabilities> capabilities() async => const RouterCapabilities(
         signal: true,
         stationList: true,
