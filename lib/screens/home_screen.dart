@@ -7,7 +7,6 @@ import '../state/app_scope.dart';
 import '../widgets/common.dart';
 import 'device_detail_screen.dart';
 import 'messages_screen.dart';
-import 'network_screen.dart';
 import 'ussd_screen.dart';
 import 'wifi_settings_screen.dart';
 
@@ -15,9 +14,11 @@ class HomeScreen extends StatefulWidget {
   const HomeScreen({
     super.key,
     required this.onViewAllDevices,
+    required this.onOpenNetwork,
   });
 
   final VoidCallback onViewAllDevices;
+  final VoidCallback onOpenNetwork;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -95,12 +96,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 QuickAction(
                   icon: Icons.radar_rounded,
                   label: 'Signal',
-                  onTap: () => _openFeature(
-                    context,
-                    enabled: controller.capabilities.signal,
-                    page: const NetworkScreen(),
-                    name: 'Signal',
-                  ),
+                  onTap: controller.capabilities.signal
+                      ? widget.onOpenNetwork
+                      : () => _unavailable(context, 'Signal'),
                 ),
               ],
             ),
@@ -229,12 +227,16 @@ class _HomeScreenState extends State<HomeScreen> {
     required String name,
   }) {
     if (!enabled) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$name is not available on this router session.')),
-      );
+      _unavailable(context, name);
       return;
     }
     Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
+  }
+
+  void _unavailable(BuildContext context, String name) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('$name is not available on this router session.')),
+    );
   }
 }
 
