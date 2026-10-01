@@ -348,6 +348,8 @@ class ZltClient {
   Future<ZltDiscoveryReport> discover() async {
     final responses = <int, Map<String, dynamic>>{};
     final errors = <int, String>{};
+    var wifi5MacFilterAvailable = false;
+    var wifi24MacFilterAvailable = false;
 
     Future<void> probe(
       int cmd, {
@@ -387,6 +389,14 @@ class ZltClient {
       await probe(28, authenticated: true);
       await probe(30, authenticated: true);
       await probe(278, authenticated: true);
+      try {
+        await readWirelessMacFilter('0');
+        wifi5MacFilterAvailable = true;
+      } catch (_) {}
+      try {
+        await readWirelessMacFilter('1');
+        wifi24MacFilterAvailable = true;
+      } catch (_) {}
       await probe(350, authenticated: true);
       await probe(355, authenticated: true);
       await probe(397, authenticated: true);
@@ -418,6 +428,8 @@ class ZltClient {
       hasFilterModes:
           responses[28]?['datas'] is List || responses[30]?['datas'] is List,
       hasParentControlRules: parentRows is List,
+      hasWifi5MacFilter: wifi5MacFilterAvailable,
+      hasWifi24MacFilter: wifi24MacFilterAvailable,
     );
   }
 
@@ -495,6 +507,8 @@ class ZltDiscoveryReport {
     required this.hasFilterRules,
     required this.hasFilterModes,
     required this.hasParentControlRules,
+    required this.hasWifi5MacFilter,
+    required this.hasWifi24MacFilter,
   });
 
   final Map<int, Map<String, dynamic>> responses;
@@ -507,13 +521,15 @@ class ZltDiscoveryReport {
   final bool hasFilterRules;
   final bool hasFilterModes;
   final bool hasParentControlRules;
+  final bool hasWifi5MacFilter;
+  final bool hasWifi24MacFilter;
 
   bool get hasWifiClientDetails => hasWifi24Clients || hasWifi5Clients;
 
-  /// Keep generic Block/Unblock disabled even if cmd 23/28/30 materialize
-  /// readable state. The exact blacklist lifecycle still needs one controlled
-  /// real-router verification before this capability can be exposed.
-  bool get canBlock => false;
+  /// Instant blocking uses the verified stock Wi-Fi deny-list path on both
+  /// bands. A successful read may legitimately contain no datas object while
+  /// the filter is closed; availability means the command itself succeeded.
+  bool get canBlock => hasWifi5MacFilter && hasWifi24MacFilter;
 
   bool get hasReadableMacFilterState => hasFilterRules && hasFilterModes;
 
