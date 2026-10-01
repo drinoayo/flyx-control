@@ -44,9 +44,6 @@ class ZltRouterRepository implements RouterRepository {
   double _rxRate = 0;
   double _txRate = 0;
 
-  final Map<String, DateTime> _continuousOnlineSince = {};
-  Set<String> _onlineLastPoll = <String>{};
-
   Set<String> _blockedMacs = <String>{};
   Map<String, String> _blockedLabels = <String, String>{};
   List<Map<String, dynamic>> _parentRules = const [];
@@ -284,11 +281,6 @@ class ZltRouterRepository implements RouterRepository {
         if (mac.isEmpty) continue;
         onlineMacs.add(mac);
 
-        if (!_onlineLastPoll.contains(mac)) {
-          _continuousOnlineSince[mac] = now;
-        }
-        final since = _continuousOnlineSince[mac] ?? now;
-
         final hostname = _text(map['hostname']);
         final name = hostname.isEmpty || hostname == '*'
             ? 'Unknown device'
@@ -326,7 +318,7 @@ class ZltRouterRepository implements RouterRepository {
             todayBytes: 0,
             weekBytes: 0,
             monthBytes: 0,
-            currentSession: now.difference(since),
+            currentSession: Duration.zero,
             totalOnlineToday: Duration.zero,
             lastSeen: now,
             signalPercent: signalPercent,
@@ -341,22 +333,18 @@ class ZltRouterRepository implements RouterRepository {
       }
     }
 
-    // Devices that vanished since the previous poll start a new continuous
-    // session when they appear again.
-    for (final previous in _onlineLastPoll.difference(onlineMacs)) {
-      _continuousOnlineSince.remove(previous);
-    }
-    _onlineLastPoll = onlineMacs;
-
     await deviceStore.recordObservations(observations, seenAt: now);
     final profiles = await deviceStore.profilesByMac();
+    final sessionStats = await deviceStore.sessionStatsByMac(now: now);
 
     for (var i = 0; i < devices.length; i++) {
       final profile = profiles[devices[i].mac];
-      if (profile == null) continue;
+      final stats = sessionStats[devices[i].mac];
       devices[i] = devices[i].copyWith(
-        name: profile.displayName,
-        firstSeen: profile.firstSeen,
+        name: profile?.displayName ?? devices[i].name,
+        firstSeen: profile?.firstSeen,
+        currentSession: stats?.currentSession ?? Duration.zero,
+        totalOnlineToday: stats?.totalOnlineToday ?? Duration.zero,
       );
     }
 
@@ -383,8 +371,10 @@ class ZltRouterRepository implements RouterRepository {
           todayBytes: 0,
           weekBytes: 0,
           monthBytes: 0,
-          currentSession: Duration.zero,
-          totalOnlineToday: Duration.zero,
+          currentSession:
+              sessionStats[mac]?.currentSession ?? Duration.zero,
+          totalOnlineToday:
+              sessionStats[mac]?.totalOnlineToday ?? Duration.zero,
           lastSeen: profile?.lastSeen ?? now,
           signalPercent: 0,
           firstSeen: profile?.firstSeen,
@@ -412,8 +402,10 @@ class ZltRouterRepository implements RouterRepository {
           todayBytes: 0,
           weekBytes: 0,
           monthBytes: 0,
-          currentSession: Duration.zero,
-          totalOnlineToday: Duration.zero,
+          currentSession:
+              sessionStats[profile.mac]?.currentSession ?? Duration.zero,
+          totalOnlineToday:
+              sessionStats[profile.mac]?.totalOnlineToday ?? Duration.zero,
           lastSeen: profile.lastSeen,
           signalPercent: 0,
           firstSeen: profile.firstSeen,
