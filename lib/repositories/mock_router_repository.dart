@@ -426,6 +426,11 @@ class MockRouterRepository implements RouterRepository {
   }
 
   @override
+  Future<void> forgetDevice(String deviceId) async {
+    _devices.removeWhere((device) => device.id == deviceId && !device.online);
+  }
+
+  @override
   Future<void> setDevicePolicy(String deviceId, DevicePolicy policy) async {
     final index = _devices.indexWhere((d) => d.id == deviceId);
     if (index == -1) return;
