@@ -642,6 +642,7 @@ class ZltRouterRepository implements RouterRepository {
     ]);
 
     return WifiSettingsSnapshot(
+      optimizationEnabled: _text(results[0]['wifiSames']) == '1',
       twoFourGhz: _wifiBandSettings(
         WifiBand.twoFourGhz,
         primary: results[0],
@@ -678,9 +679,23 @@ class ZltRouterRepository implements RouterRepository {
       broadcast: _text(primary['broadcast']) == '1',
       channel: radioChannel.isEmpty ? fallbackChannel : radioChannel,
       bandwidthCode: _text(radio['bandWidth']),
-      txPowerPercent: _int(radio['txPower']),
+      txPowerPercent: _number(radio['txPower']),
       maxClients: _int(radio['maxNum']),
       wpsEnabled: _text(wps[wpsKey]) == '1',
+      authenticationType: _text(primary['authenticationType']),
+      wifiModeCode: _text(radio['wifiWorkMode']),
+      countryCode: _text(radio['countryCode']),
+      maxClientsLimit: _int(
+        radio[
+          band == WifiBand.twoFourGhz
+              ? 'maxStaLimitCap24'
+              : 'maxStaLimitCap5'
+        ],
+        32,
+      ),
+      dfsEnabled: band == WifiBand.fiveGhz
+          ? _text(radio['dfsSwitch']) == '1'
+          : null,
     );
   }
 
@@ -689,11 +704,14 @@ class ZltRouterRepository implements RouterRepository {
     WifiBand band, {
     String? ssid,
     String? password,
+    bool? enabled,
     bool? broadcast,
+    String? authenticationType,
   }) async {
     await _ensureLogin();
     final report = await _ensureDiscovery();
     final cmd = band == WifiBand.twoFourGhz ? 2 : 211;
+    final otherCmd = band == WifiBand.twoFourGhz ? 211 : 2;
     if (!report.supportsCommand(cmd)) {
       throw RouterFeatureUnavailable(
         'This Wi-Fi band is not readable on the connected router.',
@@ -706,6 +724,11 @@ class ZltRouterRepository implements RouterRepository {
       fields: const {'subcmd': 0},
     );
     final original = _wifiPrimaryForm(current);
+    if (_text(original['wifiSames']) == '1') {
+      throw RouterFeatureUnavailable(
+        '5G Optimization is enabled. Turn it off before changing an individual Wi-Fi band.',
+      );
+    }
     final updated = Map<String, dynamic>.from(original);
 
     final requestedSsid = ssid?.trim();
@@ -723,38 +746,66 @@ class ZltRouterRepository implements RouterRepository {
       updated['ssid'] = base64Encode(bytes);
     }
 
-    if (password != null && password.isNotEmpty) {
-      if (_text(original['authenticationType']) == '0') {
-        throw RouterFeatureUnavailable(
-          'This network is currently open. FlyX Control will not change its security mode implicitly.',
+    if (enabled != null) {
+      if (!enabled) {
+        final other = await client.command(
+          otherCmd,
+          authenticated: true,
+          fields: const {'subcmd': 0},
         );
+        if (_text(other['wifiOpen']) != '1') {
+          throw RouterFeatureUnavailable(
+            'FlyX Control will not turn off the last enabled Wi-Fi band.',
+          );
+        }
       }
-      final invalidPassword = password.length < 8 ||
-          password.length > 31 ||
-          password.contains(RegExp(r'\s')) ||
-          password.contains(RegExp(r'''[\\'";]''')) ||
-          password.codeUnits.any((unit) => unit > 0x7f);
-      if (invalidPassword) {
-        throw RouterFeatureUnavailable(
-          'Wi-Fi password must be 8–31 ASCII characters with no spaces, backslashes, quotes or semicolons.',
-        );
-      }
-      updated['key'] = password;
+      updated['wifiOpen'] = enabled ? '1' : '0';
     }
 
     if (broadcast != null) {
       updated['broadcast'] = broadcast ? '1' : '0';
     }
 
+    const securityModes = {'0', '2', '3', '4', '5'};
+    if (authenticationType != null) {
+      if (!securityModes.contains(authenticationType)) {
+        throw RouterFeatureUnavailable('Unsupported Wi-Fi security mode.');
+      }
+      updated['authenticationType'] = authenticationType;
+      if (authenticationType == '0') {
+        updated['key'] = '';
+      }
+    }
+
+    final targetSecurity = _text(updated['authenticationType']);
+    if (password != null && password.isNotEmpty) {
+      if (targetSecurity == '0') {
+        throw RouterFeatureUnavailable(
+          'An open Wi-Fi network does not use a password.',
+        );
+      }
+      _validateWifiPassword(password);
+      updated['key'] = password;
+    }
+
+    if (targetSecurity != '0' && _text(updated['key']).isEmpty) {
+      throw RouterFeatureUnavailable(
+        'Enter a Wi-Fi password before enabling a protected security mode.',
+      );
+    }
+
     final changed = !_sameJson(updated, original);
     if (!changed) return const WifiUpdateResult();
 
-    final credentialChanged =
+    final disruptive =
         _text(updated['ssid']) != _text(original['ssid']) ||
-            _text(updated['key']) != _text(original['key']);
-    final localBand = credentialChanged ? await _localWifiBand() : null;
+            _text(updated['key']) != _text(original['key']) ||
+            _text(updated['wifiOpen']) != _text(original['wifiOpen']) ||
+            _text(updated['authenticationType']) !=
+                _text(original['authenticationType']);
+    final localBand = disruptive ? await _localWifiBand() : null;
     final reconnectExpected =
-        credentialChanged && (localBand == null || localBand == band);
+        disruptive && (localBand == null || localBand == band);
 
     Object? primaryError;
     try {
@@ -766,10 +817,6 @@ class ZltRouterRepository implements RouterRepository {
         },
       );
 
-      // Renaming the network or changing its password may immediately drop
-      // the phone from this Wi-Fi. Do not pretend a readback is possible in
-      // that case; the successful stock write response is the last reliable
-      // point before the client may disconnect.
       if (reconnectExpected) {
         return const WifiUpdateResult(reconnectExpected: true);
       }
@@ -782,7 +829,7 @@ class ZltRouterRepository implements RouterRepository {
       if (!_wifiPrimaryMatches(
         readback,
         updated,
-        checkKey: password != null && password.isNotEmpty,
+        checkKey: (password?.isNotEmpty ?? false) || targetSecurity == '0',
       )) {
         throw RouterFeatureUnavailable(
           'The router did not confirm the Wi-Fi change.',
@@ -820,6 +867,420 @@ class ZltRouterRepository implements RouterRepository {
     throw RouterFeatureUnavailable(
       'The Wi-Fi change was not saved. The previous settings were restored. $primaryError',
     );
+  }
+
+  void _validateWifiPassword(String password) {
+    final invalidPassword = password.length < 8 ||
+        password.length > 31 ||
+        password.contains(RegExp(r'\s')) ||
+        password.contains(RegExp(r'''[\\'";]''')) ||
+        password.codeUnits.any((unit) => unit > 0x7f);
+    if (invalidPassword) {
+      throw RouterFeatureUnavailable(
+        'Wi-Fi password must be 8–31 ASCII characters with no spaces, backslashes, quotes or semicolons.',
+      );
+    }
+  }
+
+  @override
+  Future<WifiUpdateResult> updateWifiRadio(
+    WifiBand band, {
+    String? channel,
+    String? wifiModeCode,
+    String? bandwidthCode,
+    double? txPowerPercent,
+    int? maxClients,
+    bool? dfsEnabled,
+  }) async {
+    await _ensureLogin();
+    final cmd = band == WifiBand.twoFourGhz ? 230 : 231;
+    final primaryCmd = band == WifiBand.twoFourGhz ? 2 : 211;
+    final currentPrimary = await client.command(
+      primaryCmd,
+      authenticated: true,
+      fields: const {'subcmd': 0},
+    );
+    if (_text(currentPrimary['wifiSames']) == '1') {
+      throw RouterFeatureUnavailable(
+        '5G Optimization is enabled. Turn it off before changing advanced settings for one band.',
+      );
+    }
+
+    final current = await client.command(
+      cmd,
+      authenticated: true,
+      fields: const {'subcmd': '0'},
+    );
+    final original = _wifiRadioForm(band, current);
+    final updated = Map<String, dynamic>.from(original);
+
+    if (channel != null) {
+      final value = channel.trim().toLowerCase();
+      if (value != 'auto') {
+        final parsed = int.tryParse(value);
+        if (parsed == null || parsed < 1 || parsed > 196) {
+          throw RouterFeatureUnavailable(
+            'Channel must be Auto or a numeric channel supported by the router.',
+          );
+        }
+      }
+      updated['channel'] = value == 'auto' ? 'auto' : value;
+    }
+
+    if (wifiModeCode != null) {
+      final allowed = band == WifiBand.twoFourGhz
+          ? const {'0', '1', '2', '3', '4', '5', '6', '16'}
+          : <String>{
+              '7',
+              '8',
+              '9',
+              '10',
+              '11',
+              '13',
+              '17',
+              _text(original['wifi_workMode']),
+            };
+      if (!allowed.contains(wifiModeCode)) {
+        throw RouterFeatureUnavailable(
+          'That Wi-Fi mode is not exposed by the stock MTN settings for this band.',
+        );
+      }
+      updated['wifi_workMode'] = wifiModeCode;
+      updated['wifiWorkMode'] = wifiModeCode;
+    }
+
+    if (bandwidthCode != null) {
+      _validateWifiBandwidth(
+        band,
+        mode: _text(updated['wifi_workMode']),
+        channel: _text(updated['channel']),
+        bandwidth: bandwidthCode,
+      );
+      updated['bandWidth'] = bandwidthCode;
+    } else {
+      _validateWifiBandwidth(
+        band,
+        mode: _text(updated['wifi_workMode']),
+        channel: _text(updated['channel']),
+        bandwidth: _text(updated['bandWidth']),
+      );
+    }
+
+    if (txPowerPercent != null) {
+      const allowedPower = {100.0, 75.0, 50.0, 25.0, 12.5};
+      if (!allowedPower.contains(txPowerPercent)) {
+        throw RouterFeatureUnavailable(
+          'Choose a transmit-power level exposed by the MTN Wi-Fi page.',
+        );
+      }
+      updated['txPower'] = _formatWifiNumber(txPowerPercent);
+    }
+
+    if (maxClients != null) {
+      final limit = band == WifiBand.twoFourGhz
+          ? _int(current['maxStaLimitCap24'], 32)
+          : _int(current['maxStaLimitCap5'], 32);
+      if (maxClients < 1 || maxClients > limit) {
+        throw RouterFeatureUnavailable(
+          'Maximum clients must be between 1 and $limit.',
+        );
+      }
+      updated['maxNum'] = '$maxClients';
+    }
+
+    if (dfsEnabled != null && band == WifiBand.fiveGhz) {
+      updated['dfsSwitch'] = dfsEnabled ? '1' : '0';
+    }
+
+    final changed = !_sameWifiRadioState(original, updated, band);
+    if (!changed) return const WifiUpdateResult();
+
+    final localBand = await _localWifiBand();
+    final reconnectExpected = localBand == null || localBand == band;
+
+    Object? primaryError;
+    try {
+      await client.writeExact(cmd, updated);
+      if (reconnectExpected) {
+        return const WifiUpdateResult(reconnectExpected: true);
+      }
+
+      final readback = await client.command(
+        cmd,
+        authenticated: true,
+        fields: const {'subcmd': '0'},
+      );
+      if (!_wifiRadioMatches(readback, updated, band)) {
+        throw RouterFeatureUnavailable(
+          'The router did not confirm the advanced Wi-Fi change.',
+        );
+      }
+      return const WifiUpdateResult();
+    } catch (error) {
+      primaryError = error;
+    }
+
+    try {
+      await client.writeExact(cmd, original);
+      final restored = await client.command(
+        cmd,
+        authenticated: true,
+        fields: const {'subcmd': '0'},
+      );
+      if (!_wifiRadioMatches(restored, original, band)) {
+        throw RouterFeatureUnavailable(
+          'The router did not confirm the advanced Wi-Fi rollback.',
+        );
+      }
+    } catch (rollbackError) {
+      throw RouterFeatureUnavailable(
+        'The advanced Wi-Fi change failed and rollback could not be verified. Check the MTN Wi-Fi page before trying again. Original error: $primaryError. Rollback error: $rollbackError',
+      );
+    }
+
+    throw RouterFeatureUnavailable(
+      'The advanced Wi-Fi change was not saved. The previous settings were restored. $primaryError',
+    );
+  }
+
+  @override
+  Future<void> setWifiWps(WifiBand band, bool enabled) async {
+    await _ensureLogin();
+    final primaryCmd = band == WifiBand.twoFourGhz ? 2 : 211;
+    final subcmd = band == WifiBand.twoFourGhz ? '0' : '1';
+    final key = band == WifiBand.twoFourGhz
+        ? 'wlan2g_wps_switch'
+        : 'wlan5g_wps_switch';
+
+    final primary = await client.command(
+      primaryCmd,
+      authenticated: true,
+      fields: const {'subcmd': 0},
+    );
+    if (enabled) {
+      if (_text(primary['wifiOpen']) != '1') {
+        throw RouterFeatureUnavailable(
+          'Turn this Wi-Fi band on before enabling WPS.',
+        );
+      }
+      if (_text(primary['broadcast']) != '1') {
+        throw RouterFeatureUnavailable(
+          'Enable SSID broadcast before enabling WPS.',
+        );
+      }
+      final auth = _text(primary['authenticationType']);
+      if (auth == '0' || auth == '4') {
+        throw RouterFeatureUnavailable(
+          auth == '4'
+              ? 'The stock router disables WPS while WPA3-PSK is selected.'
+              : 'WPS cannot be enabled on an open Wi-Fi network.',
+        );
+      }
+    }
+
+    final before = await client.command(
+      132,
+      authenticated: true,
+      fields: {'subcmd': subcmd},
+    );
+    final original = _text(before[key]) == '1';
+
+    try {
+      await client.writeExact(
+        132,
+        {
+          key: enabled ? '1' : '0',
+          'subcmd': int.parse(subcmd),
+        },
+      );
+      final readback = await client.command(
+        132,
+        authenticated: true,
+        fields: {'subcmd': subcmd},
+      );
+      if ((_text(readback[key]) == '1') != enabled) {
+        throw RouterFeatureUnavailable(
+          'The router did not confirm the WPS change.',
+        );
+      }
+    } catch (error) {
+      try {
+        await client.writeExact(
+          132,
+          {
+            key: original ? '1' : '0',
+            'subcmd': int.parse(subcmd),
+          },
+        );
+      } catch (_) {}
+      rethrow;
+    }
+  }
+
+  @override
+  Future<WifiUpdateResult> setWifiOptimization(bool enabled) async {
+    await _ensureLogin();
+    final current24 = await client.command(
+      2,
+      authenticated: true,
+      fields: const {'subcmd': 0},
+    );
+    final current5 = await client.command(
+      211,
+      authenticated: true,
+      fields: const {'subcmd': 0},
+    );
+
+    if (enabled &&
+        (_text(current24['wifiOpen']) != '1' ||
+            _text(current5['wifiOpen']) != '1')) {
+      throw RouterFeatureUnavailable(
+        'Both Wi-Fi bands must be enabled before turning on 5G Optimization.',
+      );
+    }
+
+    final original = _wifiPrimaryForm(current24);
+    final updated = Map<String, dynamic>.from(original)
+      ..['wifiSames'] = enabled ? '1' : '0';
+
+    if (_text(original['wifiSames']) == _text(updated['wifiSames'])) {
+      return const WifiUpdateResult();
+    }
+
+    Object? primaryError;
+    try {
+      await client.writeExact(
+        2,
+        {
+          ...updated,
+          'subcmd': 0,
+        },
+      );
+      if (enabled) {
+        return const WifiUpdateResult(reconnectExpected: true);
+      }
+      final readback = await client.command(
+        2,
+        authenticated: true,
+        fields: const {'subcmd': 0},
+      );
+      if (_text(readback['wifiSames']) != '0') {
+        throw RouterFeatureUnavailable(
+          'The router did not confirm that 5G Optimization was disabled.',
+        );
+      }
+      return const WifiUpdateResult();
+    } catch (error) {
+      primaryError = error;
+    }
+
+    try {
+      await client.writeExact(
+        2,
+        {
+          ...original,
+          'subcmd': 0,
+        },
+      );
+    } catch (rollbackError) {
+      throw RouterFeatureUnavailable(
+        'The 5G Optimization change failed and rollback could not be verified. Original error: $primaryError. Rollback error: $rollbackError',
+      );
+    }
+    throw RouterFeatureUnavailable(
+      'The 5G Optimization change was not saved. $primaryError',
+    );
+  }
+
+  Map<String, dynamic> _wifiRadioForm(
+    WifiBand band,
+    Map<String, dynamic> raw,
+  ) {
+    final form = <String, dynamic>{
+      'countryCode': raw['countryCode'] ?? '',
+      'txPower': raw['txPower'] ?? '',
+      'channel': raw['channel'] ?? 'auto',
+      'wifi_workMode': raw['wifiWorkMode'] ?? '',
+      'wifiWorkMode': raw['wifiWorkMode'] ?? '',
+      'bandWidth': raw['bandWidth'] ?? '',
+      'maxNum': '${raw['maxNum'] ?? ''}',
+      'eliminateNum': raw['eliminateNum'] ?? 0,
+      'connectNum': raw['connectNum'] ?? 0,
+      'wifiOpen': raw['wifiOpen'] ?? '',
+    };
+    if (band == WifiBand.fiveGhz) {
+      form['dfsSwitch'] = raw['dfsSwitch'] ?? '1';
+    }
+    return form;
+  }
+
+  bool _sameWifiRadioState(
+    Map<String, dynamic> a,
+    Map<String, dynamic> b,
+    WifiBand band,
+  ) {
+    const base = {
+      'countryCode',
+      'txPower',
+      'channel',
+      'wifiWorkMode',
+      'bandWidth',
+      'maxNum',
+      'wifiOpen',
+    };
+    final keys = <String>{...base};
+    if (band == WifiBand.fiveGhz) keys.add('dfsSwitch');
+    return keys.every((key) => _text(a[key]) == _text(b[key]));
+  }
+
+  bool _wifiRadioMatches(
+    Map<String, dynamic> readback,
+    Map<String, dynamic> expected,
+    WifiBand band,
+  ) {
+    final normalized = _wifiRadioForm(band, readback);
+    return _sameWifiRadioState(normalized, expected, band);
+  }
+
+  void _validateWifiBandwidth(
+    WifiBand band, {
+    required String mode,
+    required String channel,
+    required String bandwidth,
+  }) {
+    if (band == WifiBand.twoFourGhz) {
+      final allowed = {'0', '1', '2'};
+      if (!allowed.contains(bandwidth)) {
+        throw RouterFeatureUnavailable('Unsupported 2.4 GHz bandwidth.');
+      }
+      if (const {'0', '1', '3'}.contains(mode) && bandwidth != '0') {
+        throw RouterFeatureUnavailable(
+          'This 2.4 GHz Wi-Fi mode only supports 20 MHz on the stock router page.',
+        );
+      }
+      return;
+    }
+
+    final allowed = {'0', '1', '3'};
+    if (!allowed.contains(bandwidth)) {
+      throw RouterFeatureUnavailable('Unsupported 5 GHz bandwidth.');
+    }
+    if ((mode == '7' || channel == '165') && bandwidth != '0') {
+      throw RouterFeatureUnavailable(
+        'This 5 GHz mode/channel only supports 20 MHz.',
+      );
+    }
+    if (const {'8', '10'}.contains(mode) && bandwidth == '3') {
+      throw RouterFeatureUnavailable(
+        'This 5 GHz Wi-Fi mode does not expose 80 MHz on the stock router page.',
+      );
+    }
+  }
+
+  String _formatWifiNumber(double value) {
+    return value == value.roundToDouble()
+        ? '${value.toInt()}'
+        : '$value';
   }
 
   Future<WifiBand?> _localWifiBand() async {
