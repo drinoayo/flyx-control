@@ -326,6 +326,22 @@ class DeviceStore {
     return result;
   }
 
+  Future<void> forgetDevice(String mac) async {
+    final db = await _database();
+    await db.transaction((txn) async {
+      await txn.delete(
+        'device_sessions',
+        where: 'mac = ?',
+        whereArgs: [mac],
+      );
+      await txn.delete(
+        'device_profiles',
+        where: 'mac = ?',
+        whereArgs: [mac],
+      );
+    });
+  }
+
   Future<void> setFriendlyName(String mac, String? name) async {
     final db = await _database();
     final trimmed = name?.trim() ?? '';
