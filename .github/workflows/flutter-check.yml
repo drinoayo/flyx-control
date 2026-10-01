@@ -30,6 +30,9 @@ jobs:
       - name: Apply local-router Android networking
         run: python3 tool/apply_android_router_config.py
 
+      - name: Apply Android home-screen widgets
+        run: python3 tool/apply_android_widget_config.py
+
       - name: Remove generated sample test
         run: rm -f test/widget_test.dart
 
