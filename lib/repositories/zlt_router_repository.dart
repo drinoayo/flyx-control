@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../models/models.dart';
+import '../services/device_store.dart';
 import '../services/usage_store.dart';
 import '../services/zlt_client.dart';
 import 'router_repository.dart';
@@ -15,12 +16,15 @@ class ZltRouterRepository implements RouterRepository {
     required this.username,
     required this.password,
     UsageStore? usageStore,
-  }) : usageStore = usageStore ?? UsageStore();
+    DeviceStore? deviceStore,
+  })  : usageStore = usageStore ?? UsageStore(),
+        deviceStore = deviceStore ?? DeviceStore();
 
   final ZltClient client;
   final String username;
   final String password;
   final UsageStore usageStore;
+  final DeviceStore deviceStore;
 
   bool _loggedIn = false;
   Future<void>? _loginFuture;
@@ -262,6 +266,7 @@ class ZltRouterRepository implements RouterRepository {
 
     final now = DateTime.now();
     final devices = <FlyxDevice>[];
+    final observations = <DeviceObservation>[];
     final onlineMacs = <String>{};
 
     if (rows is List) {
@@ -282,6 +287,13 @@ class ZltRouterRepository implements RouterRepository {
             ? 'Unknown device'
             : hostname;
         final ip = _text(map['ip']);
+        observations.add(
+          DeviceObservation(
+            mac: mac,
+            hostname: name,
+            ip: ip,
+          ),
+        );
         final wifi = wifiByMac[mac] ?? wifiByIp[ip] ?? const <String, dynamic>{};
 
         final rssi = _nullableInt(wifi['rssi']);
@@ -329,12 +341,26 @@ class ZltRouterRepository implements RouterRepository {
     }
     _onlineLastPoll = onlineMacs;
 
+    await deviceStore.recordObservations(observations, seenAt: now);
+    final profiles = await deviceStore.profilesByMac();
+
+    for (var i = 0; i < devices.length; i++) {
+      final profile = profiles[devices[i].mac];
+      if (profile == null) continue;
+      devices[i] = devices[i].copyWith(
+        name: profile.displayName,
+        firstSeen: profile.firstSeen,
+      );
+    }
+
     // A blocked client normally disappears from active association lists. If
     // future firmware mapping exposes readable filter rules, keep it visible.
     for (final mac in _blockedMacs) {
       if (onlineMacs.contains(mac)) continue;
       final label = _blockedLabels[mac] ?? '';
-      final name = label.isEmpty ? 'Blocked device' : label;
+      final profile = profiles[mac];
+      final name = profile?.displayName ??
+          (label.isEmpty ? 'Blocked device' : label);
       devices.add(
         FlyxDevice(
           id: mac,
@@ -352,8 +378,38 @@ class ZltRouterRepository implements RouterRepository {
           monthBytes: 0,
           currentSession: Duration.zero,
           totalOnlineToday: Duration.zero,
-          lastSeen: now,
+          lastSeen: profile?.lastSeen ?? now,
           signalPercent: 0,
+          firstSeen: profile?.firstSeen,
+        ),
+      );
+    }
+
+    final existingIds = devices.map((device) => device.id).toSet();
+    for (final profile in profiles.values) {
+      if (existingIds.contains(profile.mac)) continue;
+      devices.add(
+        FlyxDevice(
+          id: profile.mac,
+          name: profile.displayName,
+          hostname: profile.hostname.isEmpty
+              ? 'Unknown device'
+              : profile.hostname,
+          mac: profile.mac,
+          ip: profile.lastIp.isEmpty ? '—' : profile.lastIp,
+          kind: _inferKind(profile.hostname),
+          online: false,
+          blocked: false,
+          rxBytesPerSecond: 0,
+          txBytesPerSecond: 0,
+          todayBytes: 0,
+          weekBytes: 0,
+          monthBytes: 0,
+          currentSession: Duration.zero,
+          totalOnlineToday: Duration.zero,
+          lastSeen: profile.lastSeen,
+          signalPercent: 0,
+          firstSeen: profile.firstSeen,
         ),
       );
     }
@@ -515,8 +571,21 @@ class ZltRouterRepository implements RouterRepository {
 
   @override
   Future<void> setDeviceName(String deviceId, String name) async {
-    throw RouterFeatureUnavailable(
-      'Friendly-name persistence will be stored locally in FlyX Control in the next data-layer pass.',
+    final mac = _normaliseMac(deviceId);
+    if (mac.isEmpty) {
+      throw RouterFeatureUnavailable('Invalid device MAC address.');
+    }
+
+    final trimmed = name.trim();
+    if (trimmed.length > 48 || trimmed.contains('\n') || trimmed.contains('\r')) {
+      throw RouterFeatureUnavailable(
+        'Device names must be 48 characters or fewer and use a single line.',
+      );
+    }
+
+    await deviceStore.setFriendlyName(
+      mac,
+      trimmed.isEmpty ? null : trimmed,
     );
   }
 
