@@ -67,8 +67,3 @@ py tool/inspect_x17u_ui.py --json > flyx-ui-report.json
 
 Do not publish unredacted router reports containing device identifiers or session information.
 
-## Status
-
-The private-beta feature roadmap is implemented. Current work is focused on testing, reliability and UI polish.
-
-Production signing credentials are intentionally not stored in this repository.
