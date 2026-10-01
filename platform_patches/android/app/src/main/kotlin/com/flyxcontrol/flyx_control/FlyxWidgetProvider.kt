@@ -10,8 +10,6 @@ import android.content.res.Configuration
 import android.graphics.Color
 import android.view.View
 import android.widget.RemoteViews
-import java.text.DateFormat
-import java.util.Date
 
 class FlyxWidgetProvider : AppWidgetProvider() {
     override fun onUpdate(
@@ -115,7 +113,6 @@ class FlyxWidgetProvider : AppWidgetProvider() {
             views.setInt(R.id.widget_root, "setBackgroundResource", background)
             views.setTextColor(R.id.widget_title, brand)
             views.setTextColor(R.id.widget_status, muted)
-            views.setTextColor(R.id.widget_updated, muted)
 
             for (index in 1..4) {
                 views.setTextColor(labelId(index), muted)
@@ -220,14 +217,6 @@ class FlyxWidgetProvider : AppWidgetProvider() {
                     )
                 }
             }
-
-            val updatedAt = data.getLong("updatedAt", 0L)
-            val updatedText = if (updatedAt > 0L) {
-                "Updated ${DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(updatedAt))}"
-            } else {
-                "Open FlyX Control to load router data"
-            }
-            views.setTextViewText(R.id.widget_updated, updatedText)
 
             val openApp = Intent(context, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
