@@ -24,6 +24,12 @@ abstract class RouterRepository {
   });
   Future<void> setWifiWps(WifiBand band, bool enabled);
   Future<WifiUpdateResult> setWifiOptimization(bool enabled);
+  Future<RouterSmsPage> fetchSmsInbox({int page = 1});
+  Future<void> sendSms(String phoneNumber, String content);
+  Future<void> markSmsRead(int index);
+  Future<void> deleteSms(List<int> indexes);
+  Future<UssdResult> sendUssd(String code);
+  Future<void> cancelUssd();
   Future<RouterCapabilities> capabilities();
   Future<void> setBlocked(String deviceId, bool blocked);
   Future<void> setDeviceName(String deviceId, String name);
