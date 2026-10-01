@@ -232,3 +232,18 @@ Findings:
 Do not infer Parent Control enforcement from a device disappearing from cmd 223/225. The canonical blocked/scheduled state must come from cmd 385 plus the current local time/day, while actual reconnect/disconnect behavior should be treated as an observed client effect.
 
 Recovery at the schedule end still needs verification. In particular, confirm whether the client reconnects automatically after 23:00 or requires manual reconnection.
+
+
+## Parent Control recovery behavior
+
+The Pixel test rule remained configured for Wednesday 22:00-23:00. The phone was observed disconnected during the forbidden window and, by 03:00 after the window had ended, it had reconnected to the router automatically without manual intervention.
+
+This confirms automatic recovery after a scheduled Parent Control block on the tested MTN X17U firmware. The exact reconnect minute was not observed, so do not claim that recovery occurs precisely at the configured end time without a tighter test.
+
+The remaining write-semantics checks are:
+
+1. disable an existing rule and confirm cmd 385 returns enableRule=false while the device remains usable;
+2. edit the time/day and confirm cmd 385 readback exactly matches the change;
+3. delete the rule and confirm it disappears from cmd 385 without affecting unrelated devices.
+
+After those checks, app-side Parent Control schedule editing can be implemented while preserving the full existing datas array.
