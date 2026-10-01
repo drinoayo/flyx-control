@@ -11,6 +11,14 @@
         <TextView android:id="@+id/widget_title" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:fontFamily="sans-serif-medium" android:letterSpacing="0.08" android:text="FLYX CONTROL" android:textColor="#F7F8FA" android:textSize="11sp" />
         <TextView android:id="@+id/widget_status" android:layout_width="wrap_content" android:layout_height="wrap_content" android:fontFamily="sans-serif-medium" android:textColor="#62D98B" android:textSize="10sp" />
     </LinearLayout>
+    <TextView
+        android:id="@+id/widget_accent_bar"
+        android:layout_width="42dp"
+        android:layout_height="3dp"
+        android:layout_marginTop="8dp"
+        android:background="#FFCB05"
+        android:text="" />
+
 
     <LinearLayout android:id="@+id/metric1" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:gravity="center_vertical" android:orientation="horizontal" android:paddingTop="7dp">
         <TextView android:id="@+id/metric1_label" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:fontFamily="sans-serif-medium" android:textColor="#959DA8" android:textSize="11sp" />
