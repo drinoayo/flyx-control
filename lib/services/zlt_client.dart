@@ -181,12 +181,14 @@ class ZltClient {
     Map<String, dynamic> fields, {
     bool includeSuccess = false,
     Duration? receiveTimeout,
+    bool validateMessage = true,
   }) {
     return _writeExact(
       cmd,
       fields,
       includeSuccess: includeSuccess,
       receiveTimeout: receiveTimeout,
+      validateMessage: validateMessage,
       allowReauth: true,
     );
   }
@@ -196,6 +198,7 @@ class ZltClient {
     Map<String, dynamic> fields, {
     required bool includeSuccess,
     required Duration? receiveTimeout,
+    required bool validateMessage,
     required bool allowReauth,
   }) async {
     if (!isAuthenticated) {
@@ -240,6 +243,7 @@ class ZltClient {
           fields,
           includeSuccess: includeSuccess,
           receiveTimeout: receiveTimeout,
+          validateMessage: validateMessage,
           allowReauth: false,
         );
       }
@@ -247,7 +251,7 @@ class ZltClient {
 
     _throwIfRefused(answer, cmd);
     final message = '${answer['message'] ?? ''}'.trim();
-    if (message.isNotEmpty && message != '0') {
+    if (validateMessage && message.isNotEmpty && message != '0') {
       throw ZltApiException('Command $cmd was refused: $message');
     }
     return answer;
