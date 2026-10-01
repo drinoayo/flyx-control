@@ -19,6 +19,9 @@ flutter create . --platforms=android --project-name flyx_control --org com.flyxc
 Write-Host "Applying FlyX local-router Android network configuration..."
 python tool/apply_android_router_config.py
 
+Write-Host "Applying FlyX Android home-screen widget configuration..."
+python tool/apply_android_widget_config.py
+
 $generatedTest = "test/widget_test.dart"
 if (Test-Path $generatedTest) {
     $content = Get-Content $generatedTest -Raw
