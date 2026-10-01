@@ -3,12 +3,12 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../models/models.dart';
-import '../repositories/router_repository.dart';
+import '../repositories/routerrepository.dart';
 
 class AppController extends ChangeNotifier {
-  AppController({required RouterRepository repository}) : _repository = repository;
+  AppController({required this.repository});
 
-  RouterRepository _repository;
+  RouterRepository repository;
   Timer? _timer;
   bool loading = true;
   bool busy = false;
@@ -25,7 +25,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> replaceRepository(RouterRepository repository) async {
-    _repository = repository;
+    this.repository = repository;
     network = null;
     devices = const [];
     weeklyUsage = const [];
@@ -45,10 +45,10 @@ class AppController extends ChangeNotifier {
     }
     try {
       final results = await Future.wait<dynamic>([
-        _repository.fetchNetwork(),
-        _repository.fetchDevices(),
-        _repository.fetchWeeklyUsage(),
-        _repository.capabilities(),
+        repository.fetchNetwork(),
+        repository.fetchDevices(),
+        repository.fetchWeeklyUsage(),
+        repository.capabilities(),
       ]);
       network = results[0] as NetworkSnapshot;
       devices = results[1] as List<FlyxDevice>;
@@ -72,30 +72,30 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> setBlocked(String id, bool blocked) async {
-    await _run(() => _repository.setBlocked(id, blocked));
+    await _run(() => repository.setBlocked(id, blocked));
   }
 
   Future<void> setDeviceName(String id, String name) async {
-    await _run(() => _repository.setDeviceName(id, name));
+    await _run(() => repository.setDeviceName(id, name));
   }
 
   Future<void> setDevicePolicy(String id, DevicePolicy policy) async {
-    await _run(() => _repository.setDevicePolicy(id, policy));
+    await _run(() => repository.setDevicePolicy(id, policy));
   }
 
   Future<void> setParentControlSchedule(
     String id,
     ParentControlSchedule schedule,
   ) async {
-    await _run(() => _repository.setParentControlSchedule(id, schedule));
+    await _run(() => repository.setParentControlSchedule(id, schedule));
   }
 
   Future<void> deleteParentControlSchedule(String id) async {
-    await _run(() => _repository.deleteParentControlSchedule(id));
+    await _run(() => repository.deleteParentControlSchedule(id));
   }
 
   Future<void> reboot() async {
-    await _run(_repository.reboot);
+    await _run(repository.reboot);
   }
 
   Future<void> _run(Future<void> Function() task) async {
