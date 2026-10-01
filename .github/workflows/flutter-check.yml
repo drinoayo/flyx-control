@@ -23,7 +23,9 @@ jobs:
           cache: true
 
       - name: Generate Android scaffold
-        run: flutter create . --platforms=android --project-name flyx_control --org com.flyxcontrol --no-pub
+        run: |
+          flutter create . --platforms=android --project-name flyx_control --org com.flyxcontrol --no-pub
+          rm -f test/widget_test.dart
 
       - name: Apply local-router Android networking
         run: python3 tool/apply_android_router_config.py
