@@ -13,6 +13,32 @@ class FlyxColors {
   static const warning = Color(0xFFF6B64D);
   static const danger = Color(0xFFFF6B6B);
   static const blue = Color(0xFF67A8FF);
+
+  static Color accentFor(BuildContext context) =>
+      Theme.of(context).colorScheme.primary;
+
+  static Color mutedFor(BuildContext context) =>
+      Theme.of(context).colorScheme.onSurfaceVariant;
+
+  static Color successFor(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+          ? success
+          : const Color(0xFF1F7A45);
+
+  static Color warningFor(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+          ? warning
+          : const Color(0xFF9A5B00);
+
+  static Color dangerFor(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+          ? danger
+          : const Color(0xFFB42318);
+
+  static Color blueFor(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+          ? blue
+          : const Color(0xFF175CD3);
 }
 
 class FlyxTheme {
@@ -175,6 +201,53 @@ class FlyxTheme {
           borderSide: BorderSide(color: accent),
         ),
       ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(foregroundColor: accent),
+      ),
+      switchTheme: SwitchThemeData(
+        thumbColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) {
+            return onSurfaceVariant.withValues(alpha: .45);
+          }
+          return states.contains(WidgetState.selected)
+              ? accent
+              : onSurfaceVariant;
+        }),
+        trackColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) {
+            return onSurfaceVariant.withValues(alpha: .12);
+          }
+          return states.contains(WidgetState.selected)
+              ? accent.withValues(alpha: .28)
+              : onSurfaceVariant.withValues(alpha: .18);
+        }),
+      ),
+      checkboxTheme: CheckboxThemeData(
+        fillColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) return accent;
+          return Colors.transparent;
+        }),
+        checkColor: WidgetStatePropertyAll(
+          dark ? FlyxColors.ink : Colors.white,
+        ),
+        side: BorderSide(color: onSurfaceVariant),
+      ),
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: ButtonStyle(
+          foregroundColor: WidgetStateProperty.resolveWith((states) {
+            return states.contains(WidgetState.selected)
+                ? accent
+                : onSurfaceVariant;
+          }),
+          backgroundColor: WidgetStateProperty.resolveWith((states) {
+            return states.contains(WidgetState.selected)
+                ? accent.withValues(alpha: dark ? .15 : .10)
+                : Colors.transparent;
+          }),
+          side: WidgetStatePropertyAll(BorderSide(color: line)),
+        ),
+      ),
+      progressIndicatorTheme: ProgressIndicatorThemeData(color: accent),
       cardColor: surface,
     );
   }
