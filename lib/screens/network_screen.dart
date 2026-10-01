@@ -5,6 +5,7 @@ import '../core/theme.dart';
 import '../models/models.dart';
 import '../state/app_scope.dart';
 import '../widgets/common.dart';
+import 'network_mode_screen.dart';
 
 class NetworkScreen extends StatefulWidget {
   const NetworkScreen({super.key});
@@ -58,8 +59,11 @@ class _NetworkScreenState extends State<NetworkScreen> {
                       LiveSparkline(values: signalHistory),
                       const SizedBox(height: 18),
                       Text(
-                        'Signal Finder can turn this into a full-screen meter with haptics while you reposition the ODU.',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: FlyxColors.muted),
+                        'Move or reposition the router and watch the live RSRP graph to compare signal quality.',
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodyMedium
+                            ?.copyWith(color: FlyxColors.muted),
                       ),
                     ],
                   ),
@@ -295,35 +299,24 @@ class _NetworkScreenState extends State<NetworkScreen> {
               ),
             ),
           ],
-          const SizedBox(height: 26),
-          const SectionTitle(title: 'Advanced controls'),
-          const SizedBox(height: 10),
-          SurfaceCard(
-            child: Column(
-              children: [
-                _ControlRow(
-                  icon: Icons.tune_rounded,
-                  title: 'Network mode',
-                  subtitle: controller.capabilities.networkMode ? 'Automatic · 4G · 5G options available' : 'Awaiting X17U capability mapping',
-                  enabled: controller.capabilities.networkMode,
+          if (controller.capabilities.networkMode) ...[
+            const SizedBox(height: 26),
+            const SectionTitle(title: 'Mobile network'),
+            const SizedBox(height: 10),
+            SurfaceCard(
+              child: _ControlRow(
+                icon: Icons.tune_rounded,
+                title: 'Network settings',
+                subtitle: 'Automatic mode, mobile data, roaming and Flight Mode',
+                enabled: true,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const NetworkModeScreen(),
+                  ),
                 ),
-                const Divider(height: 24, indent: 46),
-                const _ControlRow(
-                  icon: Icons.cell_tower_rounded,
-                  title: 'Band & cell controls',
-                  subtitle: 'Shown only after the firmware exposes supported fields',
-                  enabled: false,
-                ),
-                const Divider(height: 24, indent: 46),
-                const _ControlRow(
-                  icon: Icons.radar_rounded,
-                  title: 'Signal Finder',
-                  subtitle: 'Large live meter, haptics and best-position tracking',
-                  enabled: true,
-                ),
-              ],
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -412,31 +405,54 @@ class _HealthRow extends StatelessWidget {
 }
 
 class _ControlRow extends StatelessWidget {
-  const _ControlRow({required this.icon, required this.title, required this.subtitle, required this.enabled});
+  const _ControlRow({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.enabled,
+    this.onTap,
+  });
+
   final IconData icon;
   final String title;
   final String subtitle;
   final bool enabled;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, color: enabled ? FlyxColors.yellow : FlyxColors.muted, size: 22),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 3),
-              Text(subtitle, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: FlyxColors.muted)),
-            ],
+    return InkWell(
+      onTap: enabled ? onTap : null,
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            color: enabled ? FlyxColors.yellow : FlyxColors.muted,
+            size: 22,
           ),
-        ),
-        const SizedBox(width: 8),
-        Icon(Icons.chevron_right_rounded, color: enabled ? Colors.white : FlyxColors.muted),
-      ],
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 3),
+                Text(
+                  subtitle,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: FlyxColors.muted,
+                      ),
+                ),
+              ],
+            ),
+          ),
+          if (onTap != null)
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: FlyxColors.muted,
+            ),
+        ],
+      ),
     );
   }
 }
