@@ -5,6 +5,7 @@ import '../core/theme.dart';
 import '../models/models.dart';
 import '../state/app_scope.dart';
 import '../widgets/common.dart';
+import 'device_schedule_screen.dart';
 
 class DeviceDetailScreen extends StatelessWidget {
   const DeviceDetailScreen({super.key, required this.deviceId});
@@ -22,6 +23,8 @@ class DeviceDetailScreen extends StatelessWidget {
 
     final hasTraffic = controller.capabilities.perDeviceTraffic;
     final canBlock = controller.capabilities.blocking;
+    final canSchedule = controller.capabilities.scheduling;
+    final schedule = device.parentControlSchedule;
 
     return Scaffold(
       appBar: AppBar(
@@ -161,6 +164,70 @@ class DeviceDetailScreen extends StatelessWidget {
                 ],
               ),
             ),
+
+          const SizedBox(height: 24),
+          const SectionTitle(title: 'Access schedule'),
+          const SizedBox(height: 10),
+          SurfaceCard(
+            onTap: canSchedule
+                ? () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => DeviceScheduleScreen(
+                          deviceId: device.id,
+                        ),
+                      ),
+                    )
+                : null,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  schedule?.isActiveAt(DateTime.now()) == true
+                      ? Icons.wifi_off_rounded
+                      : Icons.schedule_rounded,
+                  color: canSchedule ? FlyxColors.yellow : FlyxColors.muted,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        canSchedule
+                            ? schedule == null
+                                ? 'No schedule'
+                                : schedule.enabled
+                                    ? schedule.summary
+                                    : 'Disabled · ${schedule.summary}'
+                            : 'Waiting for router support',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        canSchedule
+                            ? schedule == null
+                                ? 'Set repeating hours when this device should be disconnected from FlyX.'
+                                : schedule.isActiveAt(DateTime.now())
+                                    ? 'This device is currently inside its blocked window.'
+                                    : 'Manage days, hours, and whether this rule is enabled.'
+                            : 'FlyX Control only enables schedules when the router exposes a readable Parent Control rule list.',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: FlyxColors.muted,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (canSchedule) ...[
+                  const SizedBox(width: 8),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    color: FlyxColors.muted,
+                  ),
+                ],
+              ],
+            ),
+          ),
 
           const SizedBox(height: 24),
           const SectionTitle(title: 'Data limit'),
@@ -489,13 +556,24 @@ class _Header extends StatelessWidget {
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                     const SizedBox(height: 5),
-                    StatusDot(
-                      online: device.online && !device.blocked,
-                      label: device.blocked
-                          ? 'Blocked'
-                          : device.online
-                              ? 'Online'
-                              : 'Offline',
+                    Builder(
+                      builder: (context) {
+                        final scheduled =
+                            device.parentControlSchedule?.isActiveAt(
+                                  DateTime.now(),
+                                ) ??
+                                false;
+                        return StatusDot(
+                          online: device.online && !device.blocked,
+                          label: scheduled
+                              ? 'Scheduled block'
+                              : device.blocked
+                                  ? 'Blocked'
+                                  : device.online
+                                      ? 'Online'
+                                      : 'Offline',
+                        );
+                      },
                     ),
                   ],
                 ),
