@@ -13,6 +13,7 @@ class AppController extends ChangeNotifier {
   bool loading = true;
   bool busy = false;
   bool _refreshing = false;
+  int _pollTick = 0;
   String? error;
   NetworkSnapshot? network;
   List<FlyxDevice> devices = const [];
@@ -21,7 +22,43 @@ class AppController extends ChangeNotifier {
 
   Future<void> start() async {
     await refresh();
-    _timer = Timer.periodic(const Duration(seconds: 2), (_) => refresh(silent: true));
+    _timer = Timer.periodic(
+      const Duration(seconds: 2),
+      (_) => _poll(),
+    );
+  }
+
+  Future<void> _poll() async {
+    if (_refreshing || busy) return;
+    _refreshing = true;
+    _pollTick++;
+
+    try {
+      final fetchDevices = _pollTick % 3 == 0;
+      final fetchHistory = _pollTick % 15 == 0;
+
+      final futures = <Future<dynamic>>[
+        repository.fetchNetwork(),
+        if (fetchDevices) repository.fetchDevices(),
+        if (fetchHistory) repository.fetchWeeklyUsage(),
+      ];
+      final results = await Future.wait<dynamic>(futures);
+
+      var index = 0;
+      network = results[index++] as NetworkSnapshot;
+      if (fetchDevices) {
+        devices = results[index++] as List<FlyxDevice>;
+      }
+      if (fetchHistory) {
+        weeklyUsage = results[index++] as List<UsagePoint>;
+      }
+      error = null;
+    } catch (e) {
+      error = e.toString();
+    } finally {
+      _refreshing = false;
+      notifyListeners();
+    }
   }
 
   Future<void> replaceRepository(RouterRepository repository) async {
@@ -30,6 +67,7 @@ class AppController extends ChangeNotifier {
     devices = const [];
     weeklyUsage = const [];
     capabilities = const RouterCapabilities();
+    _pollTick = 0;
     await refresh();
   }
 
