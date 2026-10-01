@@ -1597,9 +1597,100 @@ class ZltRouterRepository implements RouterRepository {
       if (first.value.isNotEmpty) display = first.value;
     }
 
+    final code = fields['networkMode']?.trim() ?? display;
+    final label = switch (code) {
+      'E' => 'Automatic',
+      '131' => 'Automatic',
+      _ => code.isEmpty ? 'Unknown' : 'Mode $code',
+    };
+
     return RouterNetworkModeSnapshot(
       fields: fields,
-      displayMode: display.isEmpty ? 'Unknown' : display,
+      displayMode: label,
+      networkModeCode: code,
+      flightMode: fields['flightMode'] == '1',
+      dataEnabled: fields['dialMode'] == '1',
+      roamingEnabled: fields['roamingEnable'] == '1',
+      lteCarrierAggregation: fields['lteCA'] == '1',
+      nrCarrierAggregation: fields['nrCA'] == '1',
+    );
+  }
+
+  @override
+  Future<void> setFlightMode(bool enabled) {
+    return _setMobileNetworkFlag(
+      cmd: 226,
+      field: 'flightMode',
+      enabled: enabled,
+    );
+  }
+
+  @override
+  Future<void> setMobileData(bool enabled) {
+    return _setMobileNetworkFlag(
+      cmd: 222,
+      field: 'dialMode',
+      enabled: enabled,
+    );
+  }
+
+  @override
+  Future<void> setDataRoaming(bool enabled) {
+    return _setMobileNetworkFlag(
+      cmd: 220,
+      field: 'roamingEnable',
+      enabled: enabled,
+    );
+  }
+
+  Future<void> _setMobileNetworkFlag({
+    required int cmd,
+    required String field,
+    required bool enabled,
+  }) async {
+    await _ensureLogin();
+    final before = await client.command(218, authenticated: true);
+    final original = _text(before[field]) == '1';
+    if (original == enabled) return;
+
+    Object? primaryError;
+    try {
+      await client.writeExact(
+        cmd,
+        {field: enabled ? '1' : '0'},
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 600));
+      final readback = await client.command(218, authenticated: true);
+      if ((_text(readback[field]) == '1') != enabled) {
+        throw RouterFeatureUnavailable(
+          'The router did not confirm the mobile-network change.',
+        );
+      }
+      return;
+    } catch (error) {
+      primaryError = error;
+    }
+
+    try {
+      await client.writeExact(
+        cmd,
+        {field: original ? '1' : '0'},
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 600));
+      final restored = await client.command(218, authenticated: true);
+      if ((_text(restored[field]) == '1') != original) {
+        throw RouterFeatureUnavailable(
+          'The router did not confirm the mobile-network rollback.',
+        );
+      }
+    } catch (rollbackError) {
+      throw RouterFeatureUnavailable(
+        'The mobile-network change failed and rollback could not be verified. Original error: $primaryError. Rollback error: $rollbackError',
+      );
+    }
+
+    throw RouterFeatureUnavailable(
+      'The mobile-network change was not saved. The previous setting was restored. $primaryError',
     );
   }
 
