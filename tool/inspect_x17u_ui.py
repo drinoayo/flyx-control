@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Read-only inspection of the X17U stock web UI.
 
-Version 0.8 expands the read-only scan to the Wi-Fi, SMS and USSD feature
-groups while keeping the same no-login/no-command safety boundary. It follows
+Version 0.9 expands the read-only scan to Wi-Fi, SMS, USSD, network-mode
+and power-control UI references while keeping the same no-login/no-command
+safety boundary. It follows
 same-origin HTML/iframe/meta-refresh references, discovers JS-like URLs from
 script/link/src/href attributes and quoted strings, and records small sanitized
 previews of entry documents.
@@ -75,6 +76,17 @@ PATTERNS = [
     r"deleteSms",
     r"getUssd",
     r"setUssd",
+    r"networkMode",
+    r"mode5g",
+    r"deviceMode",
+    r"dialMode",
+    r"flightMode",
+    r"lteCA",
+    r"nrCA",
+    r"roamingEnable",
+    r"getNetworkMode",
+    r"setNetworkMode",
+    r"reboot",
     r"acceptAll",
     r"enableRule",
     r"ippro",
@@ -153,6 +165,8 @@ TARGET_ROUTE_WORDS = (
     "wps",
     "sms",
     "ussd",
+    "network",
+    "power",
 )
 
 ENTRY_PATHS = (
@@ -445,6 +459,12 @@ def main() -> int:
             "wps5",
             "/sms",
             "/ussd",
+            "/set/network",
+            "/advance/power",
+            "networkMode",
+            "setNetworkMode",
+            "getNetworkMode",
+            "reboot",
         ):
             start = 0
             while True:
@@ -554,7 +574,7 @@ def main() -> int:
         "read_only": True,
         "login_attempted": False,
         "router_commands_sent": False,
-        "version": "0.8",
+        "version": "0.9",
         "urls_fetched": len(seen_urls),
         "script_assets_found": len(script_refs),
         "all_references_found": len(discovered_refs),
