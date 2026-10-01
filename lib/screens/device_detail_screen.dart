@@ -806,24 +806,15 @@ class _Header extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 5),
-                    Builder(
-                      builder: (context) {
-                        final scheduled =
-                            device.parentControlSchedule?.isActiveAt(
-                                  DateTime.now(),
-                                ) ??
-                                false;
-                        return StatusDot(
-                          online: device.online && !device.blocked,
-                          label: scheduled
-                              ? 'Scheduled block'
-                              : device.blocked
-                                  ? 'Blocked'
-                                  : device.online
-                                      ? 'Online'
-                                      : 'Offline',
-                        );
-                      },
+                    StatusDot(
+                      online: device.online && !device.blocked,
+                      label: device.parentControlActive
+                          ? 'Scheduled block'
+                          : device.blocked
+                              ? 'Blocked'
+                              : device.online
+                                  ? 'Online'
+                                  : 'Offline',
                     ),
                   ],
                 ),
