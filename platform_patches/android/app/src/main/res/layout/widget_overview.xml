@@ -147,6 +147,4 @@
             <TextView android:id="@+id/metric4_value" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:fontFamily="sans-serif-medium" android:maxLines="1" android:textColor="#F7F8FA" android:textSize="14sp" />
         </LinearLayout>
     </LinearLayout>
-
-    <TextView android:id="@+id/widget_updated" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:fontFamily="sans-serif" android:textColor="#959DA8" android:textSize="9sp" />
 </LinearLayout>
