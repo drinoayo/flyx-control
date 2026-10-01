@@ -206,6 +206,7 @@ class _WifiBandEditorState extends State<_WifiBandEditor> {
   late double _txPower;
   late bool _dfs;
   bool _busy = false;
+  bool _expanded = false;
 
   static const _securityOptions = <String, String>{
     '0': 'Open',
@@ -523,44 +524,60 @@ class _WifiBandEditorState extends State<_WifiBandEditor> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: FlyxColors.yellow.withValues(alpha: .1),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: const Icon(
-                  Icons.wifi_rounded,
-                  color: FlyxColors.yellow,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(s.label, style: Theme.of(context).textTheme.titleLarge),
-                    const SizedBox(height: 3),
-                    Text(
-                      widget.lockedByOptimization
-                          ? 'Managed by 5G Optimization'
-                          : (_enabled ? 'Wi-Fi enabled' : 'Wi-Fi disabled'),
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: widget.lockedByOptimization
-                                ? FlyxColors.warning
-                                : (_enabled
-                                    ? FlyxColors.success
-                                    : FlyxColors.muted),
-                          ),
+          InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: () => setState(() => _expanded = !_expanded),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: FlyxColors.yellow.withValues(alpha: .1),
+                      borderRadius: BorderRadius.circular(14),
                     ),
-                  ],
-                ),
+                    child: const Icon(
+                      Icons.wifi_rounded,
+                      color: FlyxColors.yellow,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(s.label, style: Theme.of(context).textTheme.titleLarge),
+                        const SizedBox(height: 3),
+                        Text(
+                          widget.lockedByOptimization
+                              ? 'Managed by 5G Optimization'
+                              : (_enabled ? 'Wi-Fi enabled' : 'Wi-Fi disabled'),
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                color: widget.lockedByOptimization
+                                    ? FlyxColors.warning
+                                    : (_enabled
+                                        ? FlyxColors.success
+                                        : FlyxColors.muted),
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  AnimatedRotation(
+                    duration: const Duration(milliseconds: 180),
+                    turns: _expanded ? .5 : 0,
+                    child: const Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      color: FlyxColors.muted,
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
+          if (_expanded) ...[
           if (widget.lockedByOptimization) ...[
             const SizedBox(height: 14),
             Text(
@@ -773,6 +790,7 @@ class _WifiBandEditorState extends State<_WifiBandEditor> {
                 .bodyMedium
                 ?.copyWith(color: FlyxColors.muted),
           ),
+          ],
         ],
       ),
     );
