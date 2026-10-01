@@ -26,6 +26,8 @@ class DeviceDetailScreen extends StatelessWidget {
         (device.wifiBand.isNotEmpty || device.blocked);
     final canSchedule = controller.capabilities.scheduling;
     final schedule = device.parentControlSchedule;
+    final canForget =
+        !device.online && !device.blocked && device.parentControlSchedule == null;
 
     return Scaffold(
       appBar: AppBar(
@@ -421,6 +423,22 @@ class DeviceDetailScreen extends StatelessWidget {
                 ],
               ),
             ),
+
+          if (canForget) ...[
+            const SizedBox(height: 18),
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: FlyxColors.muted,
+                side: const BorderSide(color: Color(0x334E5968)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              onPressed: () => _forgetDevice(context, device),
+              icon: const Icon(Icons.delete_sweep_outlined),
+              label: const Text('Forget remembered device'),
+            ),
+          ],
         ],
       ),
     );
@@ -479,6 +497,43 @@ class DeviceDetailScreen extends StatelessWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('$e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _forgetDevice(
+    BuildContext context,
+    FlyxDevice device,
+  ) async {
+    final yes = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Forget ${device.name}?'),
+        content: const Text(
+          'This removes the friendly name and observed connection history stored locally by FlyX Control. It does not change the router. If this device connects again, FlyX Control will discover it as a new remembered device.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Forget'),
+          ),
+        ],
+      ),
+    );
+    if (yes != true || !context.mounted) return;
+
+    try {
+      await AppScope.of(context).forgetDevice(device.id);
+      if (context.mounted) Navigator.of(context).pop();
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.toString())),
         );
       }
     }
