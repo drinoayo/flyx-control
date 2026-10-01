@@ -109,21 +109,31 @@ class _HomeScreenState extends State<HomeScreen> {
               onAction: widget.onViewAllDevices,
             ),
             const SizedBox(height: 10),
-            SurfaceCard(
-              padding: EdgeInsets.zero,
-              child: Column(
-                children: [
-                  for (var i = 0; i < online.take(3).length; i++) ...[
-                    _HomeDeviceRow(
-                      device: online[i],
-                      hasTraffic: controller.capabilities.perDeviceTraffic,
-                    ),
-                    if (i < online.take(3).length - 1)
-                      const Divider(height: 1, indent: 72, endIndent: 18),
+            if (online.isEmpty)
+              const SurfaceCard(
+                child: Center(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: Text('No devices are online right now.'),
+                  ),
+                ),
+              )
+            else
+              SurfaceCard(
+                padding: EdgeInsets.zero,
+                child: Column(
+                  children: [
+                    for (var i = 0; i < online.take(3).length; i++) ...[
+                      _HomeDeviceRow(
+                        device: online[i],
+                        hasTraffic: controller.capabilities.perDeviceTraffic,
+                      ),
+                      if (i < online.take(3).length - 1)
+                        const Divider(height: 1, indent: 72, endIndent: 18),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
             const SizedBox(height: 28),
             const SectionTitle(title: 'Data usage'),
             const SizedBox(height: 10),
