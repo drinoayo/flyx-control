@@ -357,3 +357,12 @@ Remaining app-side Parent Control checks:
 - enable a disabled schedule for a short future window;
 - confirm router enforcement and automatic recovery after the window;
 - verify the app's displayed "currently blocked" state against router time before relying on phone-local time.
+
+
+## Minute-level Parent Control schedules
+
+The stock MTN Parent Control interface exposes whole-hour choices, but cmd 385 stores schedule times as HH:MM strings. FlyX Control's schedule model and router write path already preserve minute values exactly.
+
+The Android beta editor now allows exact-minute start and end times, for example 06:00-06:10. The app still performs exact cmd 385 readback verification after saving, so a firmware that rejects or normalizes minute-level values will cause the change to fail verification rather than silently being accepted.
+
+Minute-level storage on the tested firmware should be considered beta until one disabled rule with a non-zero minute value is saved and read back successfully from the real router.
