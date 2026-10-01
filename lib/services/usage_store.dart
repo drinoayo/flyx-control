@@ -10,6 +10,18 @@ import '../models/models.dart';
 /// When the app was closed across midnight, the unknown interval is split
 /// proportionally across the calendar days it crossed instead of assigning the
 /// entire delta to the day the app was reopened.
+class ObservedReliability {
+  const ObservedReliability({
+    required this.uptimePercent,
+    required this.outages,
+    required this.observedDuration,
+  });
+
+  final double uptimePercent;
+  final int outages;
+  final Duration observedDuration;
+}
+
 class UsageStore {
   Database? _db;
 
@@ -21,9 +33,10 @@ class UsageStore {
 
     _db = await openDatabase(
       path,
-      version: 2,
+      version: 3,
       onCreate: (db, version) async {
         await _createV2(db);
+        await _createV3(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
@@ -32,6 +45,9 @@ class UsageStore {
           // the verified WAN-delta history schema.
           await db.execute('DROP TABLE IF EXISTS traffic_samples');
           await _createV2(db);
+        }
+        if (oldVersion < 3) {
+          await _createV3(db);
         }
       },
     );
@@ -60,6 +76,17 @@ class UsageStore {
     );
     await db.execute(
       'CREATE INDEX IF NOT EXISTS usage_deltas_ts_idx ON usage_deltas(ts)',
+    );
+  }
+
+  Future<void> _createV3(DatabaseExecutor db) async {
+    await db.execute(
+      '''
+      CREATE TABLE IF NOT EXISTS network_samples (
+        ts INTEGER PRIMARY KEY,
+        connected INTEGER NOT NULL
+      )
+      ''',
     );
   }
 
@@ -177,6 +204,139 @@ class UsageStore {
 
       cursor = segmentEnd;
     }
+  }
+
+  Future<void> recordNetworkState({
+    required DateTime timestamp,
+    required bool connected,
+  }) async {
+    final db = await _database();
+    final nowMs = timestamp.millisecondsSinceEpoch;
+
+    await db.transaction((txn) async {
+      final rows = await txn.query(
+        'network_samples',
+        orderBy: 'ts DESC',
+        limit: 1,
+      );
+
+      var shouldInsert = rows.isEmpty;
+      if (rows.isNotEmpty) {
+        final previousTs = (rows.first['ts'] as num).toInt();
+        final previousConnected = (rows.first['connected'] as num).toInt() == 1;
+        final gapMs = nowMs - previousTs;
+        shouldInsert = previousConnected != connected ||
+            gapMs >= const Duration(seconds: 10).inMilliseconds;
+      }
+
+      if (shouldInsert) {
+        await txn.insert(
+          'network_samples',
+          {
+            'ts': nowMs,
+            'connected': connected ? 1 : 0,
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+
+      await txn.delete(
+        'network_samples',
+        where: 'ts < ?',
+        whereArgs: [
+          timestamp
+              .subtract(const Duration(days: 8))
+              .millisecondsSinceEpoch,
+        ],
+      );
+    });
+  }
+
+  Future<ObservedReliability> reliabilityToday(DateTime now) async {
+    final db = await _database();
+    final start = DateTime(now.year, now.month, now.day);
+    final startMs = start.millisecondsSinceEpoch;
+    final nowMs = now.millisecondsSinceEpoch;
+
+    final before = await db.query(
+      'network_samples',
+      where: 'ts < ?',
+      whereArgs: [startMs],
+      orderBy: 'ts DESC',
+      limit: 1,
+    );
+    final today = await db.query(
+      'network_samples',
+      where: 'ts >= ? AND ts <= ?',
+      whereArgs: [startMs, nowMs],
+      orderBy: 'ts ASC',
+    );
+
+    final rows = <Map<String, Object?>>[
+      if (before.isNotEmpty) before.first,
+      ...today,
+    ];
+    if (rows.isEmpty) {
+      return const ObservedReliability(
+        uptimePercent: 0,
+        outages: 0,
+        observedDuration: Duration.zero,
+      );
+    }
+
+    const maxObservedGap = Duration(seconds: 15);
+    final maxGapMs = maxObservedGap.inMilliseconds;
+    var observedMs = 0;
+    var connectedMs = 0;
+    var outages = 0;
+
+    for (var i = 0; i + 1 < rows.length; i++) {
+      final current = rows[i];
+      final next = rows[i + 1];
+      final currentTs = (current['ts'] as num).toInt();
+      final nextTs = (next['ts'] as num).toInt();
+      final segmentStart = currentTs < startMs ? startMs : currentTs;
+      final segmentEnd = nextTs > nowMs ? nowMs : nextTs;
+      final gapMs = nextTs - currentTs;
+
+      if (gapMs > 0 &&
+          gapMs <= maxGapMs &&
+          segmentEnd > segmentStart) {
+        final duration = segmentEnd - segmentStart;
+        observedMs += duration;
+        if ((current['connected'] as num).toInt() == 1) {
+          connectedMs += duration;
+        }
+      }
+
+      if (gapMs > 0 &&
+          gapMs <= maxGapMs &&
+          (current['connected'] as num).toInt() == 1 &&
+          (next['connected'] as num).toInt() == 0 &&
+          nextTs >= startMs) {
+        outages++;
+      }
+    }
+
+    final last = rows.last;
+    final lastTs = (last['ts'] as num).toInt();
+    final tailMs = nowMs - lastTs;
+    if (tailMs > 0 && tailMs <= maxGapMs && lastTs >= startMs) {
+      observedMs += tailMs;
+      if ((last['connected'] as num).toInt() == 1) {
+        connectedMs += tailMs;
+      }
+    }
+
+    final uptime = observedMs == 0
+        ? 0.0
+        : (connectedMs / observedMs) * 100.0;
+
+    return ObservedReliability(
+      uptimePercent: uptime.clamp(0.0, 100.0),
+      outages: outages,
+      observedDuration: Duration(milliseconds: observedMs),
+    );
   }
 
   Future<int> usageSince(DateTime start) async {
