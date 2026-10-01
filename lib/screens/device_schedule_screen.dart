@@ -42,7 +42,7 @@ class DeviceScheduleScreen extends StatelessWidget {
           Text(
             "Schedule repeating hours when this device's network access should be blocked.",
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: FlyxColors.muted,
+                  color: FlyxColors.mutedFor(context),
                 ),
           ),
           const SizedBox(height: 22),
@@ -52,9 +52,9 @@ class DeviceScheduleScreen extends StatelessWidget {
                 ? Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.schedule_rounded,
-                        color: FlyxColors.yellow,
+                        color: FlyxColors.accentFor(context),
                         size: 28,
                       ),
                       const SizedBox(height: 14),
@@ -66,7 +66,7 @@ class DeviceScheduleScreen extends StatelessWidget {
                       Text(
                         'Add a block window and choose the days it should repeat.',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: FlyxColors.muted,
+                              color: FlyxColors.mutedFor(context),
                             ),
                       ),
                     ],
@@ -95,7 +95,7 @@ class DeviceScheduleScreen extends StatelessWidget {
                                   style: Theme.of(context)
                                       .textTheme
                                       .bodyMedium
-                                      ?.copyWith(color: FlyxColors.muted),
+                                      ?.copyWith(color: FlyxColors.mutedFor(context)),
                                 ),
                               ],
                             ),
@@ -117,10 +117,10 @@ class DeviceScheduleScreen extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.all(13),
                         decoration: BoxDecoration(
-                          color: FlyxColors.yellow.withValues(alpha: .07),
+                          color: FlyxColors.accentFor(context).withValues(alpha: .07),
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(
-                            color: FlyxColors.yellow.withValues(alpha: .14),
+                            color: FlyxColors.accentFor(context).withValues(alpha: .14),
                           ),
                         ),
                         child: Row(
@@ -142,7 +142,7 @@ class DeviceScheduleScreen extends StatelessWidget {
                                 style: Theme.of(context)
                                     .textTheme
                                     .bodySmall
-                                    ?.copyWith(color: FlyxColors.muted),
+                                    ?.copyWith(color: FlyxColors.mutedFor(context)),
                               ),
                             ),
                           ],
@@ -156,9 +156,9 @@ class DeviceScheduleScreen extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(
+                Icon(
                   Icons.info_outline_rounded,
-                  color: FlyxColors.muted,
+                  color: FlyxColors.mutedFor(context),
                   size: 21,
                 ),
                 const SizedBox(width: 12),
@@ -166,7 +166,7 @@ class DeviceScheduleScreen extends StatelessWidget {
                   child: Text(
                     'MTN Parent Control is IP-based. FlyX Control resolves this device’s current LAN IP again before every save and preserves the router’s full rule list.',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: FlyxColors.muted,
+                          color: FlyxColors.mutedFor(context),
                         ),
                   ),
                 ),
@@ -193,7 +193,7 @@ class DeviceScheduleScreen extends StatelessWidget {
             const SizedBox(height: 10),
             OutlinedButton.icon(
               style: OutlinedButton.styleFrom(
-                foregroundColor: FlyxColors.danger,
+                foregroundColor: FlyxColors.dangerFor(context),
                 side: const BorderSide(color: Color(0x55FF6B6B)),
               ),
               onPressed:
@@ -416,7 +416,7 @@ class _ScheduleEditorState extends State<_ScheduleEditor> {
               Text(
                 "MTN's own interface only exposes whole hours. FlyX Control can submit exact minutes and verifies the router's readback before keeping the change.",
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: FlyxColors.muted,
+                      color: FlyxColors.mutedFor(context),
                     ),
               ),
               const SizedBox(height: 18),
@@ -477,7 +477,7 @@ class _ScheduleEditorState extends State<_ScheduleEditor> {
                 Text(
                   _error!,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: FlyxColors.danger,
+                        color: FlyxColors.dangerFor(context),
                       ),
                 ),
               ],
