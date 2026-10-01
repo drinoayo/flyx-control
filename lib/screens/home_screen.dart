@@ -12,7 +12,12 @@ import 'ussd_screen.dart';
 import 'wifi_settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({
+    super.key,
+    required this.onViewAllDevices,
+  });
+
+  final VoidCallback onViewAllDevices;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -103,7 +108,7 @@ class _HomeScreenState extends State<HomeScreen> {
             SectionTitle(
               title: '${online.length} device${online.length == 1 ? '' : 's'} online',
               action: 'View all',
-              onAction: () {},
+              onAction: widget.onViewAllDevices,
             ),
             const SizedBox(height: 10),
             SurfaceCard(
