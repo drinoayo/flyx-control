@@ -157,8 +157,13 @@ class ZltClient {
         'The router did not return a readable Parent Control rule list.',
       );
     }
+    if (rows.any((row) => row is! Map)) {
+      throw ZltApiException(
+        'The router returned an unexpected Parent Control rule shape.',
+      );
+    }
     return rows
-        .whereType<Map>()
+        .cast<Map>()
         .map((row) => row.map((key, value) => MapEntry('$key', value)))
         .toList(growable: false);
   }
