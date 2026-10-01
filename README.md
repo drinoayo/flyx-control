@@ -19,6 +19,7 @@ FlyX Control is being built as a proper consumer network-control app rather than
 - Real WAN byte counters, router uptime, monthly download/upload totals, CPU usage, temperature, memory and firmware version.
 - SQLite-backed local daily/weekly usage history derived from verified cumulative WAN counters.
 - Safe read-only X17U discovery utilities and a stock-web-UI inspector.
+- Verified Parent Control schedules for connected devices: create, edit, enable/disable and delete, with readback verification and rollback.
 
 ## Confirmed X17U API mapping
 
@@ -40,6 +41,12 @@ The current tested mapping includes:
 - 23, 28, 30 — accepted as reads, but no readable filter-rule state is returned
 
 Command 25 returns LIMITED_ACCESS on the tested MTN account.
+
+## Parent Control schedules
+
+The tested MTN X17U firmware exposes Kids Management through command 385 and applies changes through command 20. FlyX Control now supports repeating blocked-time schedules for connected devices.
+
+Schedule writes are guarded: the app resolves the device's current LAN IP, preserves the full rule list, writes the change, applies it, reads the state back, and attempts to restore the previous rules if verification fails.
 
 ## Blocking and per-device limits
 
@@ -73,3 +80,19 @@ Do not publish unredacted router reports containing device identifiers.
 4. Map SMS and USSD.
 5. Verify reboot, network-mode and advanced radio controls.
 6. Add persistent friendly device names and richer local device history.
+
+
+## Android development setup
+
+The repository keeps the Flutter source plus small platform-specific patches rather than committing generated Android template files. On Windows, run:
+
+    powershell -ExecutionPolicy Bypass -File tool/bootstrap_android.ps1
+
+That generates the Android scaffold, applies the local-router cleartext/network-security configuration, removes Flutter's placeholder sample test if generated, and installs dependencies.
+
+Then run:
+
+    flutter analyze
+    flutter build apk --debug
+
+GitHub Actions performs the same bootstrap before analysis and APK builds.
