@@ -61,6 +61,67 @@ class WifiUpdateResult {
   final bool reconnectExpected;
 }
 
+
+class RouterSmsMessage {
+  const RouterSmsMessage({
+    required this.index,
+    required this.unread,
+    required this.phoneNumber,
+    required this.date,
+    required this.text,
+  });
+
+  final int index;
+  final bool unread;
+  final String phoneNumber;
+  final String date;
+  final String text;
+
+  RouterSmsMessage copyWith({bool? unread}) {
+    return RouterSmsMessage(
+      index: index,
+      unread: unread ?? this.unread,
+      phoneNumber: phoneNumber,
+      date: date,
+      text: text,
+    );
+  }
+}
+
+class RouterSmsPage {
+  const RouterSmsPage({
+    required this.messages,
+    required this.total,
+    required this.page,
+    this.sendFull = false,
+    this.receiveFull = false,
+    this.flashFull = false,
+    this.maxLength = 160,
+  });
+
+  final List<RouterSmsMessage> messages;
+  final int total;
+  final int page;
+  final bool sendFull;
+  final bool receiveFull;
+  final bool flashFull;
+  final int maxLength;
+
+  int get maxPage => total <= 0 ? 1 : ((total + 9) ~/ 10);
+}
+
+class UssdResult {
+  const UssdResult({
+    required this.message,
+    required this.needsReply,
+    required this.status,
+  });
+
+  final String message;
+  final bool needsReply;
+  final String status;
+}
+
 class ParentControlSchedule {
   const ParentControlSchedule({
     required this.enabled,
