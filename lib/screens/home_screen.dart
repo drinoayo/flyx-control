@@ -167,7 +167,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   Text(
                     'Daily history is calculated locally from the router’s cumulative WAN counters.',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: FlyxColors.muted,
+                          color: FlyxColors.mutedFor(context),
                         ),
                   ),
                 ],
@@ -208,8 +208,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           valueColor: network != null &&
                                   network.internetObservationDuration !=
                                       Duration.zero
-                              ? FlyxColors.success
-                              : FlyxColors.muted,
+                              ? FlyxColors.successFor(context)
+                              : FlyxColors.mutedFor(context),
                         ),
                       ),
                     ],
@@ -221,7 +221,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ? 'FlyX Control starts calculating reliability while the app is observing the router.'
                           : 'Tracked while FlyX Control is running · ${network.outagesToday} outage${network.outagesToday == 1 ? '' : 's'} observed today.',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: FlyxColors.muted,
+                            color: FlyxColors.mutedFor(context),
                           ),
                     ),
                   ],
@@ -267,20 +267,43 @@ class _LoadingHero extends StatelessWidget {
 
 class _NetworkHero extends StatelessWidget {
   const _NetworkHero({required this.network, required this.history});
+
   final NetworkSnapshot network;
   final List<double> history;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final dark = theme.brightness == Brightness.dark;
+    final muted = dark
+        ? FlyxColors.muted
+        : theme.colorScheme.onSurfaceVariant;
+
     return Container(
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF1D2026), Color(0xFF101216)],
+          colors: dark
+              ? const [Color(0xFF1D2026), Color(0xFF101216)]
+              : const [Colors.white, Color(0xFFF0F2F5)],
         ),
         borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: const Color(0xFF323842)),
+        border: Border.all(
+          color: dark
+              ? const Color(0xFF323842)
+              : theme.colorScheme.outlineVariant,
+        ),
+        boxShadow: dark
+            ? null
+            : const [
+                BoxShadow(
+                  blurRadius: 26,
+                  spreadRadius: -18,
+                  offset: Offset(0, 10),
+                  color: Colors.black12,
+                ),
+              ],
       ),
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
       child: Column(
@@ -289,44 +312,65 @@ class _NetworkHero extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                 decoration: BoxDecoration(
                   color: FlyxColors.yellow,
                   borderRadius: BorderRadius.circular(99),
                 ),
                 child: Text(
                   network.networkType,
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: FlyxColors.ink,
-                        fontWeight: FontWeight.w800,
-                      ),
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: FlyxColors.ink,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
               const SizedBox(width: 9),
-              Text(network.carrier, style: Theme.of(context).textTheme.labelMedium?.copyWith(color: FlyxColors.muted)),
+              Text(
+                network.carrier,
+                style: theme.textTheme.labelMedium?.copyWith(color: muted),
+              ),
               const Spacer(),
-              Icon(Icons.signal_cellular_alt_rounded, color: network.gradeColor, size: 20),
+              Icon(
+                Icons.signal_cellular_alt_rounded,
+                color: network.gradeColor,
+                size: 20,
+              ),
             ],
           ),
           const SizedBox(height: 26),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text('${network.rsrp}', style: Theme.of(context).textTheme.displaySmall?.copyWith(fontSize: 46)),
+              Text(
+                '${network.rsrp}',
+                style: theme.textTheme.displaySmall?.copyWith(
+                  fontSize: 46,
+                  color: theme.colorScheme.onSurface,
+                ),
+              ),
               Padding(
                 padding: const EdgeInsets.only(bottom: 6, left: 5),
-                child: Text('dBm', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: FlyxColors.muted)),
+                child: Text(
+                  'dBm',
+                  style: theme.textTheme.bodyMedium?.copyWith(color: muted),
+                ),
               ),
               const Spacer(),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
                   color: network.gradeColor.withValues(alpha: .11),
                   borderRadius: BorderRadius.circular(99),
                 ),
                 child: Text(
                   network.gradeLabel,
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(color: network.gradeColor),
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: network.gradeColor,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ],
@@ -407,13 +451,16 @@ class _HomeDeviceRow extends StatelessWidget {
                                   '${device.wifiRssiDbm} dBm',
                               ].join(' · '),
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: FlyxColors.muted,
+                          color: FlyxColors.mutedFor(context),
                         ),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right_rounded, color: FlyxColors.muted),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: FlyxColors.mutedFor(context),
+            ),
           ],
         ),
       ),
