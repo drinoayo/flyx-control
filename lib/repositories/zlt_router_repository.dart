@@ -43,10 +43,14 @@ class ZltRouterRepository implements RouterRepository {
 
   Set<String> _blockedMacs = <String>{};
   Map<String, String> _blockedLabels = <String, String>{};
+  List<Map<String, dynamic>> _parentRules = const [];
   int _devicePoll = 0;
 
   Future<void> _ensureLogin() async {
-    if (_loggedIn) return;
+    if (_loggedIn || client.isAuthenticated) {
+      _loggedIn = true;
+      return;
+    }
     _loginFuture ??= client.login(username: username, password: password);
     try {
       await _loginFuture;
@@ -251,6 +255,7 @@ class ZltRouterRepository implements RouterRepository {
     _devicePoll++;
     if (_devicePoll == 1 || _devicePoll % 3 == 1) {
       await _refreshBlocked();
+      await _refreshParentControl();
     }
 
     final now = DateTime.now();
@@ -282,6 +287,8 @@ class ZltRouterRepository implements RouterRepository {
         final txLink = _positiveNumber(wifi['txrate']);
         final rxLink = _positiveNumber(wifi['rxrate']);
         final expires = _dateFromEpoch(map['expires']);
+        final schedule = _parentScheduleForIp(ip);
+        final scheduleActive = schedule?.isActiveAt(now) ?? false;
 
         devices.add(
           FlyxDevice(
@@ -292,7 +299,7 @@ class ZltRouterRepository implements RouterRepository {
             ip: ip.isEmpty ? '—' : ip,
             kind: _inferKind(name),
             online: true,
-            blocked: _blockedMacs.contains(mac),
+            blocked: _blockedMacs.contains(mac) || scheduleActive,
             rxBytesPerSecond: 0,
             txBytesPerSecond: 0,
             todayBytes: 0,
@@ -307,6 +314,7 @@ class ZltRouterRepository implements RouterRepository {
             wifiTxLinkMbps: txLink,
             wifiRxLinkMbps: rxLink,
             dhcpLeaseExpires: expires,
+            parentControlSchedule: schedule,
           ),
         );
       }
@@ -395,6 +403,34 @@ class ZltRouterRepository implements RouterRepository {
         .toList(growable: false);
   }
 
+  Future<void> _refreshParentControl() async {
+    try {
+      _parentRules = await client.readParentControlRules();
+    } catch (_) {
+      // Capability discovery decides whether schedules are exposed.
+    }
+  }
+
+  ParentControlSchedule? _parentScheduleForIp(String ip) {
+    if (ip.isEmpty) return null;
+    for (final rule in _parentRules) {
+      if (_text(rule['ip']) != ip) continue;
+      final start = _text(rule['startTime']);
+      final end = _text(rule['endTime']);
+      final days = _parseScheduleDays(rule['scheduleDays']);
+      if (start.isEmpty || end.isEmpty || days.isEmpty) return null;
+      return ParentControlSchedule(
+        enabled: rule['enableRule'] == true ||
+            _text(rule['enableRule']).toLowerCase() == 'true' ||
+            _text(rule['enableRule']) == '1',
+        startTime: start,
+        endTime: end,
+        days: days,
+      );
+    }
+    return null;
+  }
+
   @override
   Future<RouterCapabilities> capabilities() async {
     final report = await _ensureDiscovery();
@@ -402,6 +438,7 @@ class ZltRouterRepository implements RouterRepository {
       signal: report.supportsCommand(133),
       stationList: report.hasStationList,
       blocking: report.canBlock,
+      scheduling: report.canSchedule,
       sms: false,
       ussd: false,
       wifiSettings: false,
@@ -486,6 +523,230 @@ class ZltRouterRepository implements RouterRepository {
     throw RouterFeatureUnavailable(
       'Quota storage is ready, but automatic enforcement needs verified per-device accounting and a safe block path.',
     );
+  }
+
+  @override
+  Future<void> setParentControlSchedule(
+    String deviceId,
+    ParentControlSchedule schedule,
+  ) async {
+    await _ensureLogin();
+    final report = await _ensureDiscovery();
+    if (!report.canSchedule) {
+      throw RouterFeatureUnavailable(
+        'Parent Control is not readable on this router yet, so FlyX Control will not replace its rule list.',
+      );
+    }
+    _validateSchedule(schedule);
+
+    final mac = _normaliseMac(deviceId);
+    if (mac.isEmpty) {
+      throw RouterFeatureUnavailable('Invalid device MAC address.');
+    }
+    final ip = await _currentIpForMac(mac);
+    final original = await client.readParentControlRules();
+    final updated = original
+        .map((rule) => Map<String, dynamic>.from(rule))
+        .toList();
+
+    final matching = <int>[];
+    for (var i = 0; i < updated.length; i++) {
+      if (_text(updated[i]['ip']) == ip) matching.add(i);
+    }
+    if (matching.length > 1) {
+      throw RouterFeatureUnavailable(
+        'The router returned more than one Parent Control rule for this device IP. FlyX Control will not guess which one to replace.',
+      );
+    }
+
+    final rule = matching.isEmpty
+        ? <String, dynamic>{}
+        : Map<String, dynamic>.from(updated[matching.single]);
+    rule
+      ..['enableRule'] = schedule.enabled
+      ..['ip'] = ip
+      ..['startTime'] = schedule.startTime
+      ..['endTime'] = schedule.endTime
+      ..['scheduleDays'] = _serializeScheduleDays(schedule.days);
+
+    if (matching.isEmpty) {
+      updated.add(rule);
+    } else {
+      updated[matching.single] = rule;
+    }
+
+    await _saveParentRulesSafely(
+      original: original,
+      updated: updated,
+      verify: (readback) {
+        for (final item in readback) {
+          if (_text(item['ip']) != ip) continue;
+          final enabled = item['enableRule'] == true ||
+              _text(item['enableRule']).toLowerCase() == 'true' ||
+              _text(item['enableRule']) == '1';
+          return enabled == schedule.enabled &&
+              _text(item['startTime']) == schedule.startTime &&
+              _text(item['endTime']) == schedule.endTime &&
+              _text(item['scheduleDays']) ==
+                  _serializeScheduleDays(schedule.days);
+        }
+        return false;
+      },
+    );
+  }
+
+  @override
+  Future<void> deleteParentControlSchedule(String deviceId) async {
+    await _ensureLogin();
+    final report = await _ensureDiscovery();
+    if (!report.canSchedule) {
+      throw RouterFeatureUnavailable(
+        'Parent Control is not readable on this router yet.',
+      );
+    }
+
+    final mac = _normaliseMac(deviceId);
+    if (mac.isEmpty) {
+      throw RouterFeatureUnavailable('Invalid device MAC address.');
+    }
+    final ip = await _currentIpForMac(mac);
+    final original = await client.readParentControlRules();
+    final updated = original
+        .where((rule) => _text(rule['ip']) != ip)
+        .map((rule) => Map<String, dynamic>.from(rule))
+        .toList();
+
+    if (updated.length == original.length) {
+      _parentRules = original;
+      return;
+    }
+
+    await _saveParentRulesSafely(
+      original: original,
+      updated: updated,
+      deletion: true,
+      verify: (readback) =>
+          !readback.any((rule) => _text(rule['ip']) == ip),
+    );
+  }
+
+  Future<String> _currentIpForMac(String mac) async {
+    final response = await client.command(223, authenticated: true);
+    final rows = response['dhcp_list_info'];
+    if (rows is! List) {
+      throw RouterFeatureUnavailable(
+        'The router did not return the connected-device list.',
+      );
+    }
+    for (final row in rows) {
+      if (row is! Map) continue;
+      final normalized = row.map((key, value) => MapEntry('$key', value));
+      if (_normaliseMac(_text(normalized['mac'])) != mac) continue;
+      final ip = _text(normalized['ip']);
+      if (ip.isNotEmpty) return ip;
+    }
+    throw RouterFeatureUnavailable(
+      'This device is not currently connected. Because MTN Parent Control rules are IP-based, reconnect it before changing its schedule.',
+    );
+  }
+
+  Future<void> _saveParentRulesSafely({
+    required List<Map<String, dynamic>> original,
+    required List<Map<String, dynamic>> updated,
+    required bool Function(List<Map<String, dynamic>>) verify,
+    bool deletion = false,
+  }) async {
+    Object? primaryError;
+    try {
+      await client.saveParentControlRules(updated, deletion: deletion);
+      final readback = await client.readParentControlRules();
+      if (!verify(readback)) {
+        throw RouterFeatureUnavailable(
+          'The router did not return the expected Parent Control state after saving.',
+        );
+      }
+      _parentRules = readback;
+      return;
+    } catch (error) {
+      primaryError = error;
+    }
+
+    try {
+      await client.saveParentControlRules(original, deletion: true);
+      final restored = await client.readParentControlRules();
+      _parentRules = restored;
+      if (!_sameParentRules(restored, original)) {
+        throw RouterFeatureUnavailable(
+          'The schedule write failed and the router did not confirm an exact rollback.',
+        );
+      }
+    } catch (rollbackError) {
+      throw RouterFeatureUnavailable(
+        'The schedule write failed and automatic rollback could not be verified. Open the MTN Parent Control page before making another change. Original error: $primaryError. Rollback error: $rollbackError',
+      );
+    }
+
+    throw RouterFeatureUnavailable(
+      'The schedule change was not saved. The previous Parent Control rules were restored. $primaryError',
+    );
+  }
+
+  bool _sameParentRules(
+    List<Map<String, dynamic>> a,
+    List<Map<String, dynamic>> b,
+  ) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      final left = a[i];
+      final right = b[i];
+      if (_text(left['enableRule']) != _text(right['enableRule']) ||
+          _text(left['ip']) != _text(right['ip']) ||
+          _text(left['startTime']) != _text(right['startTime']) ||
+          _text(left['endTime']) != _text(right['endTime']) ||
+          _text(left['scheduleDays']) != _text(right['scheduleDays'])) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  void _validateSchedule(ParentControlSchedule schedule) {
+    if (schedule.days.isEmpty ||
+        schedule.days.any((day) => day < 0 || day > 6)) {
+      throw RouterFeatureUnavailable('Choose at least one valid day.');
+    }
+    final start = _timeMinutes(schedule.startTime);
+    final end = _timeMinutes(schedule.endTime);
+    if (start == null || end == null || end <= start) {
+      throw RouterFeatureUnavailable(
+        'Choose a valid schedule where the end time is later than the start time.',
+      );
+    }
+  }
+
+  Set<int> _parseScheduleDays(dynamic value) {
+    return _text(value)
+        .split(',')
+        .map((part) => int.tryParse(part.trim()))
+        .whereType<int>()
+        .where((day) => day >= 0 && day <= 6)
+        .toSet();
+  }
+
+  String _serializeScheduleDays(Set<int> days) {
+    final ordered = days.toList()..sort();
+    return ordered.join(',');
+  }
+
+  int? _timeMinutes(String value) {
+    final parts = value.split(':');
+    if (parts.length != 2) return null;
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    if (hour == null || minute == null) return null;
+    if (hour < 0 || hour > 24 || minute < 0 || minute > 59) return null;
+    if (hour == 24 && minute != 0) return null;
+    return hour * 60 + minute;
   }
 
   @override
