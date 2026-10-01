@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="250dp"
+    android:minHeight="132dp"
+    android:minResizeWidth="180dp"
+    android:minResizeHeight="96dp"
+    android:initialLayout="@layout/widget_overview"
+    android:previewLayout="@layout/widget_overview"
+    android:configure="com.flyxcontrol.flyx_control.FlyxWidgetConfigActivity"
+    android:resizeMode="horizontal|vertical"
+    android:updatePeriodMillis="1800000"
+    android:widgetCategory="home_screen"
+    android:widgetFeatures="reconfigurable" />
