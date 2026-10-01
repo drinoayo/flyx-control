@@ -967,7 +967,7 @@ class ZltRouterRepository implements RouterRepository {
     }
 
     if (txPowerPercent != null) {
-      const allowedPower = {100.0, 75.0, 50.0, 25.0, 12.5};
+      const allowedPower = [100.0, 75.0, 50.0, 25.0, 12.5];
       if (!allowedPower.contains(txPowerPercent)) {
         throw RouterFeatureUnavailable(
           'Choose a transmit-power level exposed by the MTN Wi-Fi page.',
