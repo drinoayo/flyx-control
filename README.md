@@ -25,6 +25,10 @@ FlyX Control is being built as a proper consumer network-control app rather than
 - Persistent app-observed device sessions plus tracked online time today.
 - Locally observed internet uptime and outage counts that ignore periods when FlyX Control was not observing the router.
 - Complete guarded Wi-Fi controls for both 2.4 GHz and 5 GHz: radio state, SSID, password/security, broadcast, channel, mode, bandwidth, transmit power, max clients, DFS where exposed, WPS, and 5G Optimization.
+- Router SMS inbox with newest-first ordering, unread/read state, filtering/search, replies, sending and deletion.
+- Interactive USSD through the verified modern router path.
+- Verified router reboot from the stock X17U power-control mapping.
+- Read-only network-mode state while its firmware-specific value mapping is captured safely.
 
 ## Confirmed X17U API mapping
 
@@ -91,9 +95,8 @@ Completed:
 - Recent observed device-session and internet-outage history.
 
 Remaining major feature groups:
-1. Map SMS and USSD.
-2. Verify reboot and network-mode controls.
-3. Add cleanup/forget controls for remembered devices and finish Android release packaging.
+1. Finish the network-mode value mapping and guarded mode switching.
+2. Add cleanup/forget controls for remembered devices and finish Android release packaging.
 
 
 
