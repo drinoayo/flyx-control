@@ -240,7 +240,7 @@ class ZltClient {
 
     _throwIfRefused(answer, cmd);
     final message = '${answer['message'] ?? ''}'.trim();
-    if (message.isNotEmpty) {
+    if (message.isNotEmpty && message != '0') {
       throw ZltApiException('Command $cmd was refused: $message');
     }
     return answer;
@@ -372,6 +372,32 @@ class ZltClient {
     await probe(205);
 
     if (isAuthenticated) {
+      await probe(
+        2,
+        authenticated: true,
+        fields: const {'subcmd': 0},
+      );
+      await probe(
+        211,
+        authenticated: true,
+        fields: const {'subcmd': 0},
+      );
+      await probe(
+        230,
+        authenticated: true,
+        fields: const {'subcmd': '0'},
+      );
+      await probe(
+        231,
+        authenticated: true,
+        fields: const {'subcmd': '0'},
+      );
+      await probe(
+        410,
+        authenticated: true,
+        fields: const {'subcmd': '0'},
+      );
+      await probe(463, authenticated: true);
       await probe(11, authenticated: true);
       await probe(223, authenticated: true);
       await probe(224, authenticated: true);
