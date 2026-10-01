@@ -239,6 +239,8 @@ class ZltRouterRepository implements RouterRepository {
       }
     }
 
+    final deviceSnapshotReliable = rows is List;
+
     final wifiResults = await Future.wait<Map<String, dynamic>>([
       _safeCommand(224),
       _safeCommand(225),
@@ -333,7 +335,9 @@ class ZltRouterRepository implements RouterRepository {
       }
     }
 
-    await deviceStore.recordObservations(observations, seenAt: now);
+    if (deviceSnapshotReliable) {
+      await deviceStore.recordObservations(observations, seenAt: now);
+    }
     final profiles = await deviceStore.profilesByMac();
     final sessionStats = await deviceStore.sessionStatsByMac(now: now);
 
