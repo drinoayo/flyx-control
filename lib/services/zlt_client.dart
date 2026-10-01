@@ -432,28 +432,6 @@ class ZltClient {
           authenticated: true,
           fields: const {'getfun': true},
         ),
-        probe(278, authenticated: true),
-        probe(463, authenticated: true),
-      ]);
-
-      await Future.wait([
-        probe(
-          23,
-          authenticated: true,
-          fields: const {'getfun': true},
-        ),
-        probe(28, authenticated: true),
-        probe(30, authenticated: true),
-        probe(
-          410,
-          authenticated: true,
-          fields: const {'subcmd': '0'},
-        ),
-        probe(355, authenticated: true),
-        probe(397, authenticated: true),
-      ]);
-
-      await Future.wait([
         () async {
           try {
             await readWirelessMacFilter('0');
