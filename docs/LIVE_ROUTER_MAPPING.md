@@ -422,4 +422,20 @@ Confirmed stock-UI behavior:
 
 This is a better candidate for instant Block/Unblock than the generic cmd 23/28/30 path, because it is the exact blacklist used from the connected-device Wi-Fi page.
 
-A reversible verification tool now tests both bands using only a dummy locally administered MAC, confirms readback, and restores the original state. Production Block/Unblock remains gated until that live test passes.
+A reversible verification tool tested both bands using only a dummy locally administered MAC, confirmed readback, and restored the original state. That live test has now passed, so production Block/Unblock can use this path with readback verification and rollback safeguards.
+
+
+## Reversible Wi-Fi MAC blacklist test passed
+
+The dummy-MAC verification completed successfully on the real router for both Wi-Fi bands.
+
+Observed result:
+
+- 5 GHz subcmd "0": original state was closed/empty, temporary deny rule was confirmed by readback, and cleanup restored the original semantic state;
+- 2.4 GHz subcmd "1": original state was closed/empty, temporary deny rule was confirmed by readback, and cleanup restored the original semantic state;
+- overall verification: true;
+- overall restoration: true.
+
+This confirms the stock cmd 278 deny-list path is writable, readable after materialization, reversible, and suitable for FlyX Control's instant Block/Unblock feature on the tested firmware.
+
+Production blocking therefore uses cmd 278 on both bands, preserves existing entries, refuses whitelist mode, verifies readback after every write, and attempts rollback if either band does not match the intended state.
