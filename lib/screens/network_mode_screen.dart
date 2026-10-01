@@ -162,7 +162,7 @@ class _NetworkModeScreenState extends State<NetworkModeScreen> {
                         style: Theme.of(context)
                             .textTheme
                             .bodyMedium
-                            ?.copyWith(color: FlyxColors.muted),
+                            ?.copyWith(color: FlyxColors.mutedFor(context)),
                       ),
                       const SizedBox(height: 8),
                       Text(
@@ -175,7 +175,7 @@ class _NetworkModeScreenState extends State<NetworkModeScreen> {
                         style: Theme.of(context)
                             .textTheme
                             .bodySmall
-                            ?.copyWith(color: FlyxColors.muted),
+                            ?.copyWith(color: FlyxColors.mutedFor(context)),
                       ),
                       if (liveType.isNotEmpty) ...[
                         const SizedBox(height: 8),
@@ -184,7 +184,7 @@ class _NetworkModeScreenState extends State<NetworkModeScreen> {
                           style: Theme.of(context)
                               .textTheme
                               .bodyMedium
-                              ?.copyWith(color: FlyxColors.muted),
+                              ?.copyWith(color: FlyxColors.mutedFor(context)),
                         ),
                       ],
                       const SizedBox(height: 12),
@@ -193,7 +193,7 @@ class _NetworkModeScreenState extends State<NetworkModeScreen> {
                         style: Theme.of(context)
                             .textTheme
                             .bodyMedium
-                            ?.copyWith(color: FlyxColors.muted),
+                            ?.copyWith(color: FlyxColors.mutedFor(context)),
                       ),
                     ],
                   ),
@@ -297,7 +297,7 @@ class _NetworkModeScreenState extends State<NetworkModeScreen> {
                                     style: Theme.of(context)
                                         .textTheme
                                         .bodySmall
-                                        ?.copyWith(color: FlyxColors.muted),
+                                        ?.copyWith(color: FlyxColors.mutedFor(context)),
                                   ),
                                 ),
                                 const SizedBox(width: 10),
