@@ -16,9 +16,11 @@ class ZltRouterRepository implements RouterRepository {
     required this.client,
     required this.username,
     required this.password,
+    ZltDiscoveryReport? initialDiscovery,
     UsageStore? usageStore,
     DeviceStore? deviceStore,
-  })  : usageStore = usageStore ?? UsageStore(),
+  })  : _discovery = initialDiscovery,
+        usageStore = usageStore ?? UsageStore(),
         deviceStore = deviceStore ?? DeviceStore();
 
   final ZltClient client;
