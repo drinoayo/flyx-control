@@ -418,6 +418,7 @@ class ZltClient {
       await probe(18, authenticated: true);
       await probe(337, authenticated: true);
       await probe(207, authenticated: true);
+      await probe(218, authenticated: true);
 
       await probe(
         23,
