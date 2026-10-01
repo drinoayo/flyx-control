@@ -33,6 +33,9 @@ jobs:
       - name: Apply Android home-screen widgets
         run: python3 tool/apply_android_widget_config.py
 
+      - name: Configure unsigned release packaging
+        run: python3 tool/apply_android_release_unsigned.py
+
       - name: Remove generated sample test
         run: rm -f test/widget_test.dart
 
@@ -62,5 +65,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: flyx-control-release-staging-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: |
+            build/app/outputs/flutter-apk/app-release*.apk
+            build/app/outputs/apk/release/app-release*.apk
           if-no-files-found: error
