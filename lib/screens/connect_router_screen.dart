@@ -22,6 +22,7 @@ class _ConnectRouterScreenState extends State<ConnectRouterScreen> {
   final password = TextEditingController();
   bool obscure = true;
   bool loading = false;
+  bool rememberMe = true;
   String? status;
 
   @override
@@ -36,6 +37,7 @@ class _ConnectRouterScreenState extends State<ConnectRouterScreen> {
     host.text = saved.host;
     username.text = saved.username;
     password.text = saved.password;
+    setState(() => rememberMe = true);
   }
 
   @override
@@ -136,7 +138,23 @@ class _ConnectRouterScreenState extends State<ConnectRouterScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 6),
+          CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            controlAffinity: ListTileControlAffinity.leading,
+            value: rememberMe,
+            onChanged: loading
+                ? null
+                : (value) => setState(() => rememberMe = value ?? true),
+            title: const Text('Remember me'),
+            subtitle: Text(
+              'Store this router login securely on this phone and reconnect automatically after app or phone restarts.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: FlyxColors.muted,
+                  ),
+            ),
+          ),
+          const SizedBox(height: 10),
           FilledButton.icon(
             onPressed: loading ? null : _connect,
             icon: loading
@@ -231,7 +249,7 @@ class _ConnectRouterScreenState extends State<ConnectRouterScreen> {
 
     setState(() {
       loading = true;
-      status = 'Running a safe capability check…';
+      status = 'Signing in to FlyX…';
     });
 
     try {
@@ -256,17 +274,27 @@ class _ConnectRouterScreenState extends State<ConnectRouterScreen> {
         username: config.username,
         password: config.password,
       );
+      if (mounted) {
+        setState(() => status = 'Checking router capabilities…');
+      }
       final report = await client.discover();
 
       final repository = ZltRouterRepository(
         client: client,
         username: config.username,
         password: config.password,
+        initialDiscovery: report,
       );
 
-      await const SecureRouterStore().save(config);
+      final store = const SecureRouterStore();
+      if (rememberMe) {
+        await store.save(config);
+      } else {
+        await store.clear();
+      }
       if (!mounted) return;
 
+      setState(() => status = 'Loading dashboard…');
       await AppScope.of(context).replaceRepository(repository);
       if (!mounted) return;
 
@@ -276,7 +304,6 @@ class _ConnectRouterScreenState extends State<ConnectRouterScreen> {
         loading = false;
       });
 
-      await Future<void>.delayed(const Duration(milliseconds: 500));
       if (!mounted) return;
       final navigator = Navigator.of(context);
       if (navigator.canPop()) {
