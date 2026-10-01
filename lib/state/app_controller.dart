@@ -33,8 +33,11 @@ class AppController extends ChangeNotifier {
     await refresh();
   }
 
-  Future<void> refresh({bool silent = false}) async {
-    if (_refreshing) return;
+  Future<void> refresh({
+    bool silent = false,
+    bool allowWhileBusy = false,
+  }) async {
+    if (_refreshing || (busy && !allowWhileBusy)) return;
     _refreshing = true;
     if (!silent) {
       loading = true;
@@ -101,7 +104,7 @@ class AppController extends ChangeNotifier {
     notifyListeners();
     try {
       await task();
-      await refresh(silent: true);
+      await refresh(silent: true, allowWhileBusy: true);
     } catch (e) {
       error = e.toString();
       rethrow;
