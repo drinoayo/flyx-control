@@ -325,6 +325,36 @@ class DeviceScheduleScreen extends StatelessWidget {
   }
 }
 
+class _TimeField extends StatelessWidget {
+  const _TimeField({
+    required this.label,
+    required this.value,
+    required this.onTap,
+  });
+
+  final String label;
+  final String value;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: onTap,
+      child: InputDecorator(
+        decoration: InputDecoration(
+          labelText: label,
+          suffixIcon: const Icon(Icons.schedule_rounded),
+        ),
+        child: Text(
+          value,
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+      ),
+    );
+  }
+}
+
 class _ScheduleEditor extends StatefulWidget {
   const _ScheduleEditor({this.existing});
 
@@ -366,11 +396,6 @@ class _ScheduleEditorState extends State<_ScheduleEditor> {
 
   @override
   Widget build(BuildContext context) {
-    final startOptions =
-        List.generate(24, (hour) => '${hour.toString().padLeft(2, '0')}:00');
-    final endOptions =
-        List.generate(24, (index) => '${(index + 1).toString().padLeft(2, '0')}:00');
-
     return SafeArea(
       top: false,
       child: Padding(
@@ -391,7 +416,7 @@ class _ScheduleEditorState extends State<_ScheduleEditor> {
               ),
               const SizedBox(height: 7),
               Text(
-                'The X17U stock interface applies schedules in one-hour increments.',
+                'MTN's own interface only exposes whole hours. FlyX Control can submit exact minutes and verifies the router's readback before keeping the change.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: FlyxColors.muted,
                     ),
@@ -407,36 +432,18 @@ class _ScheduleEditorState extends State<_ScheduleEditor> {
               Row(
                 children: [
                   Expanded(
-                    child: DropdownButtonFormField<String>(
-                      initialValue: _start,
-                      decoration: const InputDecoration(labelText: 'Start'),
-                      items: [
-                        for (final value in startOptions)
-                          DropdownMenuItem(
-                            value: value,
-                            child: Text(value),
-                          ),
-                      ],
-                      onChanged: (value) {
-                        if (value != null) setState(() => _start = value);
-                      },
+                    child: _TimeField(
+                      label: 'Start',
+                      value: _start,
+                      onTap: () => _pickTime(isStart: true),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: DropdownButtonFormField<String>(
-                      initialValue: _end,
-                      decoration: const InputDecoration(labelText: 'End'),
-                      items: [
-                        for (final value in endOptions)
-                          DropdownMenuItem(
-                            value: value,
-                            child: Text(value),
-                          ),
-                      ],
-                      onChanged: (value) {
-                        if (value != null) setState(() => _end = value);
-                      },
+                    child: _TimeField(
+                      label: 'End',
+                      value: _end,
+                      onTap: () => _pickTime(isStart: false),
                     ),
                   ),
                 ],
@@ -491,17 +498,72 @@ class _ScheduleEditorState extends State<_ScheduleEditor> {
     );
   }
 
+  Future<void> _pickTime({required bool isStart}) async {
+    final current = _parseTime(isStart ? _start : _end);
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: current,
+      builder: (context, child) {
+        final media = MediaQuery.of(context);
+        return MediaQuery(
+          data: media.copyWith(alwaysUse24HourFormat: true),
+          child: child!,
+        );
+      },
+    );
+    if (picked == null || !mounted) return;
+
+    setState(() {
+      final value = _formatTime(picked);
+      if (isStart) {
+        _start = value;
+      } else {
+        _end = value;
+      }
+      _error = null;
+    });
+  }
+
+  TimeOfDay _parseTime(String value) {
+    final parts = value.split(':');
+    final hour = parts.isNotEmpty ? int.tryParse(parts[0]) : null;
+    final minute = parts.length > 1 ? int.tryParse(parts[1]) : null;
+    return TimeOfDay(
+      hour: (hour ?? 0).clamp(0, 23),
+      minute: (minute ?? 0).clamp(0, 59),
+    );
+  }
+
+  String _formatTime(TimeOfDay value) {
+    final hour = value.hour.toString().padLeft(2, '0');
+    final minute = value.minute.toString().padLeft(2, '0');
+    return '$hour:$minute';
+  }
+
+  int? _minutesOfDay(String value) {
+    final parts = value.split(':');
+    if (parts.length != 2) return null;
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    if (hour == null || minute == null) return null;
+    if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+    return hour * 60 + minute;
+  }
+
   void _save() {
     if (_days.isEmpty) {
       setState(() => _error = 'Choose at least one day.');
       return;
     }
 
-    final startHour = int.parse(_start.substring(0, 2));
-    final endHour = int.parse(_end.substring(0, 2));
-    if (endHour <= startHour) {
+    final startMinutes = _minutesOfDay(_start);
+    final endMinutes = _minutesOfDay(_end);
+    if (startMinutes == null ||
+        endMinutes == null ||
+        endMinutes <= startMinutes) {
       setState(
-        () => _error = 'End time must be later than start time.',
+        () => _error =
+            'End time must be later than start time on the same day.',
       );
       return;
     }
