@@ -710,10 +710,10 @@ class _WifiBandEditorState extends State<_WifiBandEditor> {
                 : 100.0,
             decoration: const InputDecoration(labelText: 'Transmit power'),
             items: const [
-              DropdownMenuItem(value: 100, child: Text('100%')),
-              DropdownMenuItem(value: 75, child: Text('75%')),
-              DropdownMenuItem(value: 50, child: Text('50%')),
-              DropdownMenuItem(value: 25, child: Text('25%')),
+              DropdownMenuItem(value: 100.0, child: Text('100%')),
+              DropdownMenuItem(value: 75.0, child: Text('75%')),
+              DropdownMenuItem(value: 50.0, child: Text('50%')),
+              DropdownMenuItem(value: 25.0, child: Text('25%')),
               DropdownMenuItem(value: 12.5, child: Text('12.5%')),
             ],
             onChanged: disabled
