@@ -115,6 +115,39 @@ class AppController extends ChangeNotifier {
     return null;
   }
 
+  Future<WifiSettingsSnapshot> fetchWifiSettings() {
+    return repository.fetchWifiSettings();
+  }
+
+  Future<WifiUpdateResult> updateWifiPrimary(
+    WifiBand band, {
+    String? ssid,
+    String? password,
+    bool? broadcast,
+  }) async {
+    busy = true;
+    error = null;
+    notifyListeners();
+    try {
+      final result = await repository.updateWifiPrimary(
+        band,
+        ssid: ssid,
+        password: password,
+        broadcast: broadcast,
+      );
+      if (!result.reconnectExpected) {
+        await refresh(silent: true, allowWhileBusy: true);
+      }
+      return result;
+    } catch (e) {
+      error = e.toString();
+      rethrow;
+    } finally {
+      busy = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> setBlocked(String id, bool blocked) async {
     await _run(() => repository.setBlocked(id, blocked));
   }
