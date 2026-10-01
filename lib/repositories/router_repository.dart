@@ -30,6 +30,7 @@ abstract class RouterRepository {
   Future<void> deleteSms(List<int> indexes);
   Future<UssdResult> sendUssd(String code);
   Future<void> cancelUssd();
+  Future<RouterNetworkModeSnapshot> fetchNetworkMode();
   Future<RouterCapabilities> capabilities();
   Future<void> setBlocked(String deviceId, bool blocked);
   Future<void> setDeviceName(String deviceId, String name);
