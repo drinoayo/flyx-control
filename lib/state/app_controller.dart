@@ -143,6 +143,10 @@ class AppController extends ChangeNotifier {
     return repository.cancelUssd();
   }
 
+  Future<RouterNetworkModeSnapshot> fetchNetworkMode() {
+    return repository.fetchNetworkMode();
+  }
+
 
   Future<WifiUpdateResult> updateWifiPrimary(
     WifiBand band, {
@@ -250,7 +254,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> reboot() async {
-    await _run(repository.reboot);
+    await _runAction(repository.reboot);
   }
 
   Future<void> _runAction(Future<void> Function() task) async {
