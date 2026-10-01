@@ -35,7 +35,7 @@ class AppTopBar extends StatelessWidget {
             ],
           ),
         ),
-        if (trailing case final value?) value,
+        ?trailing,
       ],
     );
   }
