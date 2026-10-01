@@ -8,6 +8,9 @@ class MockRouterRepository implements RouterRepository {
   final Random _random = Random(4);
   int _tick = 0;
   bool _wifiOptimization = false;
+  bool _flightMode = false;
+  bool _mobileData = true;
+  bool _dataRoaming = false;
   WifiBandSettings _wifi24 = const WifiBandSettings(
     band: WifiBand.twoFourGhz,
     ssid: 'FlyX-2.4G',
@@ -354,13 +357,38 @@ class MockRouterRepository implements RouterRepository {
 
   @override
   Future<RouterNetworkModeSnapshot> fetchNetworkMode() async {
-    return const RouterNetworkModeSnapshot(
+    return RouterNetworkModeSnapshot(
       displayMode: 'Automatic',
+      networkModeCode: 'E',
+      flightMode: _flightMode,
+      dataEnabled: _mobileData,
+      roamingEnabled: _dataRoaming,
+      lteCarrierAggregation: true,
+      nrCarrierAggregation: true,
       fields: {
-        'networkMode': 'Automatic',
-        'networkType': '5G NSA',
+        'networkMode': 'E',
+        'flightMode': _flightMode ? '1' : '0',
+        'dialMode': _mobileData ? '1' : '0',
+        'roamingEnable': _dataRoaming ? '1' : '0',
+        'lteCA': '1',
+        'nrCA': '1',
       },
     );
+  }
+
+  @override
+  Future<void> setFlightMode(bool enabled) async {
+    _flightMode = enabled;
+  }
+
+  @override
+  Future<void> setMobileData(bool enabled) async {
+    _mobileData = enabled;
+  }
+
+  @override
+  Future<void> setDataRoaming(bool enabled) async {
+    _dataRoaming = enabled;
   }
 
   @override
