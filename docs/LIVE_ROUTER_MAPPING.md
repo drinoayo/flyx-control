@@ -269,17 +269,10 @@ This confirms that Parent Control rule edits are persisted independently from th
 The final stock-UI lifecycle test is deletion: remove the disabled Pixel rule, then confirm cmd 385 no longer returns that rule and that no unrelated device state is changed.
 
 
-## Twelfth authenticated discovery: last-rule deletion did not clear state
+## Twelfth authenticated discovery: deletion test not yet performed
 
-After attempting to delete the only remaining disabled Pixel Parent Control rule through the stock MTN UI, cmd 385 still returned the same rule unchanged:
+The report still showed the disabled Pixel rule because the rule had not actually been deleted in the stock MTN UI before the discovery run.
 
-- enableRule=false
-- startTime=04:00
-- endTime=05:00
-- scheduleDays=4
+No deletion behavior should be inferred from this report.
 
-This means deletion of the final rule is not yet verified. The firmware may ignore an empty datas array, the stock UI may fail to persist deletion of the last item, or the rule may remain in backend state even if the UI hides it.
-
-Do not implement app-side deletion yet.
-
-The next safe diagnostic is to check whether the stock UI still displays the rule after refresh. If it does not, test with two disabled rules: create a second disabled rule on a non-critical device, then delete only one rule so cmd 385 is written with a non-empty remaining datas array. That distinguishes a general delete failure from a firmware quirk specific to clearing the last rule.
+The next step is to delete the Pixel rule in the stock UI and rerun the read-only discovery to observe how cmd 385 represents an empty Parent Control rule set.
