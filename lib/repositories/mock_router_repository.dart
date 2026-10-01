@@ -314,6 +314,45 @@ class MockRouterRepository implements RouterRepository {
   }
 
   @override
+  Future<RouterSmsPage> fetchSmsInbox({int page = 1}) async {
+    return RouterSmsPage(
+      messages: const [
+        RouterSmsMessage(
+          index: 1,
+          unread: true,
+          phoneNumber: 'MTN',
+          date: '2026-10-01 09:10',
+          text: 'Welcome to FlyX router SMS.',
+        ),
+      ],
+      total: 1,
+      page: page,
+      maxLength: 160,
+    );
+  }
+
+  @override
+  Future<void> sendSms(String phoneNumber, String content) async {}
+
+  @override
+  Future<void> markSmsRead(int index) async {}
+
+  @override
+  Future<void> deleteSms(List<int> indexes) async {}
+
+  @override
+  Future<UssdResult> sendUssd(String code) async {
+    return const UssdResult(
+      message: 'Demo USSD response',
+      needsReply: false,
+      status: '0',
+    );
+  }
+
+  @override
+  Future<void> cancelUssd() async {}
+
+  @override
   Future<RouterCapabilities> capabilities() async => const RouterCapabilities(
         signal: true,
         stationList: true,
