@@ -37,6 +37,7 @@ abstract class RouterRepository {
   Future<RouterCapabilities> capabilities();
   Future<void> setBlocked(String deviceId, bool blocked);
   Future<void> setDeviceName(String deviceId, String name);
+  Future<void> forgetDevice(String deviceId);
   Future<void> setDevicePolicy(String deviceId, DevicePolicy policy);
   Future<void> setParentControlSchedule(
     String deviceId,
