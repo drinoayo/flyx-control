@@ -257,6 +257,7 @@ class NetworkSnapshot {
     required this.uploadBytesPerSecond,
     required this.routerUptime,
     required this.internetUptimePercent,
+    this.internetObservationDuration = Duration.zero,
     required this.todayBytes,
     required this.monthBytes,
     required this.outagesToday,
@@ -284,6 +285,7 @@ class NetworkSnapshot {
   final double uploadBytesPerSecond;
   final Duration routerUptime;
   final double internetUptimePercent;
+  final Duration internetObservationDuration;
   final int todayBytes;
   final int monthBytes;
   final int outagesToday;
@@ -326,6 +328,8 @@ class NetworkSnapshot {
     double? downloadBytesPerSecond,
     double? uploadBytesPerSecond,
     Duration? routerUptime,
+    double? internetUptimePercent,
+    Duration? internetObservationDuration,
     int? todayBytes,
     int? monthBytes,
     int? latencyMs,
@@ -351,7 +355,10 @@ class NetworkSnapshot {
       downloadBytesPerSecond: downloadBytesPerSecond ?? this.downloadBytesPerSecond,
       uploadBytesPerSecond: uploadBytesPerSecond ?? this.uploadBytesPerSecond,
       routerUptime: routerUptime ?? this.routerUptime,
-      internetUptimePercent: internetUptimePercent,
+      internetUptimePercent:
+          internetUptimePercent ?? this.internetUptimePercent,
+      internetObservationDuration:
+          internetObservationDuration ?? this.internetObservationDuration,
       todayBytes: todayBytes ?? this.todayBytes,
       monthBytes: monthBytes ?? this.monthBytes,
       outagesToday: outagesToday,
