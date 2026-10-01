@@ -474,7 +474,7 @@ def main() -> int:
         "read_only": True,
         "login_attempted": False,
         "router_commands_sent": False,
-        "version": "0.5",
+        "version": "0.6",
         "urls_fetched": len(seen_urls),
         "script_assets_found": len(script_refs),
         "all_references_found": len(discovered_refs),
