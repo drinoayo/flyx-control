@@ -3,6 +3,49 @@ import 'package:flutter/material.dart';
 enum DeviceKind { phone, laptop, tv, tablet, desktop, console, unknown }
 enum LimitPeriod { daily, weekly, monthly }
 enum ConnectionGrade { excellent, good, fair, poor }
+enum WifiBand { twoFourGhz, fiveGhz }
+
+class WifiBandSettings {
+  const WifiBandSettings({
+    required this.band,
+    required this.ssid,
+    required this.enabled,
+    required this.broadcast,
+    required this.channel,
+    required this.bandwidthCode,
+    required this.txPowerPercent,
+    required this.maxClients,
+    required this.wpsEnabled,
+  });
+
+  final WifiBand band;
+  final String ssid;
+  final bool enabled;
+  final bool broadcast;
+  final String channel;
+  final String bandwidthCode;
+  final int txPowerPercent;
+  final int maxClients;
+  final bool wpsEnabled;
+
+  String get label => band == WifiBand.twoFourGhz ? '2.4 GHz' : '5 GHz';
+}
+
+class WifiSettingsSnapshot {
+  const WifiSettingsSnapshot({
+    required this.twoFourGhz,
+    required this.fiveGhz,
+  });
+
+  final WifiBandSettings twoFourGhz;
+  final WifiBandSettings fiveGhz;
+}
+
+class WifiUpdateResult {
+  const WifiUpdateResult({this.reconnectExpected = false});
+
+  final bool reconnectExpected;
+}
 
 class ParentControlSchedule {
   const ParentControlSchedule({
