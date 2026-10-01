@@ -80,13 +80,40 @@ Do not publish unredacted router reports containing device identifiers.
 
 ## Next live-device milestones
 
-1. Verify the router's own clock/timezone response so scheduled-block status uses router time rather than phone time.
-2. Add recent connection/outage history views on top of the new persistent observation stores.
-3. Map Wi-Fi settings.
-4. Map SMS and USSD.
-5. Verify reboot, network-mode and advanced radio controls.
-6. Add cleanup/forget controls for remembered devices and finish Android release packaging.
+Completed:
+- Router-clock alignment for Parent Control status.
+- Recent observed device-session and internet-outage history.
 
+Remaining major feature groups:
+1. Map Wi-Fi settings.
+2. Map SMS and USSD.
+3. Verify reboot, network-mode and advanced radio controls.
+4. Add cleanup/forget controls for remembered devices and finish Android release packaging.
+
+
+
+## Stable Android beta signing
+
+Android only allows an installed app to be updated by another APK signed with
+the same key. GitHub-hosted debug builds normally get a fresh ephemeral debug
+key, so FlyX Control supports a private stable beta key through Actions secrets.
+
+Create the key once on Windows:
+
+    powershell -ExecutionPolicy Bypass -File tool/create_beta_signing_key.ps1
+
+Then add the four values printed by the script under GitHub repository
+Settings -> Secrets and variables -> Actions:
+
+- FLYX_BETA_KEYSTORE_B64
+- FLYX_BETA_STORE_PASSWORD
+- FLYX_BETA_KEY_ALIAS
+- FLYX_BETA_KEY_PASSWORD
+
+The keystore and its base64 export must never be committed. After switching
+from an old ephemeral debug build to the stable key, Android may require one
+final uninstall. Builds signed with the stable key can then update each other
+in place.
 
 ## Android development setup
 
