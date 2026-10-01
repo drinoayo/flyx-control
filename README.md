@@ -92,29 +92,6 @@ Remaining major feature groups:
 
 
 
-## Stable Android beta signing
-
-Android only allows an installed app to be updated by another APK signed with
-the same key. GitHub-hosted debug builds normally get a fresh ephemeral debug
-key, so FlyX Control supports a private stable beta key through Actions secrets.
-
-Create the key once on Windows:
-
-    powershell -ExecutionPolicy Bypass -File tool/create_beta_signing_key.ps1
-
-Then add the four values printed by the script under GitHub repository
-Settings -> Secrets and variables -> Actions:
-
-- FLYX_BETA_KEYSTORE_B64
-- FLYX_BETA_STORE_PASSWORD
-- FLYX_BETA_KEY_ALIAS
-- FLYX_BETA_KEY_PASSWORD
-
-The keystore and its base64 export must never be committed. After switching
-from an old ephemeral debug build to the stable key, Android may require one
-final uninstall. Builds signed with the stable key can then update each other
-in place.
-
 ## Android development setup
 
 The repository keeps the Flutter source plus small platform-specific patches rather than committing generated Android template files. On Windows, run:
