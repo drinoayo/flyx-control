@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../models/models.dart';
@@ -34,5 +35,33 @@ class SecureRouterStore {
       _storage.delete(key: _userKey),
       _storage.delete(key: _passwordKey),
     ]);
+  }
+}
+
+
+class AppearanceStore {
+  const AppearanceStore();
+
+  static const _storage = FlutterSecureStorage();
+  static const _themeKey = 'flyx.theme_mode';
+
+  Future<ThemeMode> load() async {
+    final value = await _storage.read(key: _themeKey);
+    return switch (value) {
+      'light' => ThemeMode.light,
+      'dark' => ThemeMode.dark,
+      _ => ThemeMode.system,
+    };
+  }
+
+  Future<void> save(ThemeMode mode) {
+    return _storage.write(
+      key: _themeKey,
+      value: switch (mode) {
+        ThemeMode.light => 'light',
+        ThemeMode.dark => 'dark',
+        ThemeMode.system => 'system',
+      },
+    );
   }
 }
