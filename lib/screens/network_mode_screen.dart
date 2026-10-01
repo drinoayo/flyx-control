@@ -59,6 +59,7 @@ class _NetworkModeScreenState extends State<NetworkModeScreen> {
           }
 
           final data = snapshot.data!;
+          final liveType = AppScope.of(context).network?.networkType ?? '';
           final entries = data.fields.entries.toList()
             ..sort((a, b) => a.key.compareTo(b.key));
 
@@ -78,7 +79,7 @@ class _NetworkModeScreenState extends State<NetworkModeScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Current router value',
+                        'Router mode code',
                         style: Theme.of(context)
                             .textTheme
                             .bodyMedium
@@ -89,6 +90,16 @@ class _NetworkModeScreenState extends State<NetworkModeScreen> {
                         data.displayMode,
                         style: Theme.of(context).textTheme.headlineSmall,
                       ),
+                      if (liveType.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          'Current connection: $liveType',
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodyMedium
+                              ?.copyWith(color: FlyxColors.muted),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -114,7 +125,7 @@ class _NetworkModeScreenState extends State<NetworkModeScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'FlyX Control has now confirmed the router network-mode endpoint. Changing it stays locked until the exact X17U field and allowed values are captured from this firmware, so we do not guess a radio write.',
+                        'The X17U is returning networkMode directly. Your current raw value is shown above. Changing it stays locked until the firmware’s exact value mapping is captured, so FlyX Control does not guess what codes such as E mean.',
                         style: Theme.of(context)
                             .textTheme
                             .bodyMedium
