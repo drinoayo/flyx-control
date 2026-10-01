@@ -1,6 +1,8 @@
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
+import '../models/models.dart';
+
 class StoredDeviceProfile {
   const StoredDeviceProfile({
     required this.mac,
@@ -282,6 +284,46 @@ class DeviceStore {
           ),
         ),
     };
+  }
+
+  Future<Map<String, List<DeviceSessionRecord>>> recentSessionsByMac({
+    int limitPerDevice = 5,
+  }) async {
+    final db = await _database();
+    final rows = await db.query(
+      'device_sessions',
+      orderBy: 'started_at DESC',
+    );
+
+    final result = <String, List<DeviceSessionRecord>>{};
+    for (final row in rows) {
+      final mac = '${row['mac']}';
+      final existing = result.putIfAbsent(mac, () => <DeviceSessionRecord>[]);
+      if (existing.length >= limitPerDevice) continue;
+
+      final startedAt = DateTime.fromMillisecondsSinceEpoch(
+        (row['started_at'] as num).toInt(),
+      );
+      final lastSeen = DateTime.fromMillisecondsSinceEpoch(
+        (row['last_seen'] as num).toInt(),
+      );
+      final endedRaw = row['ended_at'];
+      final endedAt = endedRaw == null
+          ? null
+          : DateTime.fromMillisecondsSinceEpoch(
+              (endedRaw as num).toInt(),
+            );
+
+      existing.add(
+        DeviceSessionRecord(
+          startedAt: startedAt,
+          lastSeen: lastSeen,
+          endedAt: endedAt,
+        ),
+      );
+    }
+
+    return result;
   }
 
   Future<void> setFriendlyName(String mac, String? name) async {
