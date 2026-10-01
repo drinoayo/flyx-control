@@ -209,7 +209,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                   subtitle: 'ROUTER SMS',
                   title: data.total == 1
                       ? '1 message'
-                      : data.total.toString() + ' messages',
+                      : '${data.total} messages',
                 ),
                 const SizedBox(height: 18),
                 if (data.messages.isEmpty)
@@ -241,7 +241,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                           ),
                         ),
                         subtitle: Text(
-                          message.text + '\n' + message.date,
+                          '${message.text}\n${message.date}',
                           maxLines: 3,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -261,10 +261,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                       Expanded(
                         child: Center(
                           child: Text(
-                            'Page ' +
-                                _page.toString() +
-                                ' of ' +
-                                data.maxPage.toString(),
+                            'Page $_page of ${data.maxPage}',
                           ),
                         ),
                       ),
