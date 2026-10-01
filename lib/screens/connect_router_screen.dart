@@ -207,13 +207,14 @@ class _ConnectRouterScreenState extends State<ConnectRouterScreen> {
 
     final parts = value.split('.');
     if (parts.length != 4) return null;
-    final octets = parts.map(int.tryParse).toList(growable: false);
-    if (octets.any((part) => part == null || part! < 0 || part > 255)) {
+    final parsed = parts.map(int.tryParse).toList(growable: false);
+    if (parsed.any((part) => part == null || part < 0 || part > 255)) {
       return null;
     }
+    final octets = parsed.cast<int>();
 
-    final a = octets[0]!;
-    final b = octets[1]!;
+    final a = octets[0];
+    final b = octets[1];
     final isPrivate = a == 10 ||
         (a == 172 && b >= 16 && b <= 31) ||
         (a == 192 && b == 168);
