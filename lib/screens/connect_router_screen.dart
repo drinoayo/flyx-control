@@ -193,6 +193,33 @@ class _ConnectRouterScreenState extends State<ConnectRouterScreen> {
     );
   }
 
+  String? _normaliseRouterHost(String input) {
+    var value = input.trim();
+    if (value.isEmpty) return null;
+
+    value = value.replaceFirst(RegExp(r'^https?://', caseSensitive: false), '');
+    value = value.split('/').first.split('#').first;
+    if (value.contains(':')) {
+      // X17U uses the default HTTP port. Keep beta networking constrained to
+      // a plain local IPv4 address rather than accepting arbitrary endpoints.
+      return null;
+    }
+
+    final parts = value.split('.');
+    if (parts.length != 4) return null;
+    final octets = parts.map(int.tryParse).toList(growable: false);
+    if (octets.any((part) => part == null || part! < 0 || part > 255)) {
+      return null;
+    }
+
+    final a = octets[0]!;
+    final b = octets[1]!;
+    final isPrivate = a == 10 ||
+        (a == 172 && b >= 16 && b <= 31) ||
+        (a == 192 && b == 168);
+    return isPrivate ? value : null;
+  }
+
   Future<void> _connect() async {
     if (password.text.isEmpty) {
       setState(
@@ -207,8 +234,18 @@ class _ConnectRouterScreenState extends State<ConnectRouterScreen> {
     });
 
     try {
+      final routerHost = _normaliseRouterHost(host.text);
+      if (routerHost == null) {
+        setState(() {
+          status =
+              'Enter a private local router IPv4 address, such as 192.168.0.1.';
+          loading = false;
+        });
+        return;
+      }
+
       final config = RouterConnectionConfig(
-        host: host.text.trim(),
+        host: routerHost,
         username: username.text.trim().isEmpty ? 'admin' : username.text.trim(),
         password: password.text,
       );
