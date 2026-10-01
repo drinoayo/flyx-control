@@ -378,77 +378,95 @@ class ZltClient {
       }
     }
 
-    await probe(113);
-    await probe(133);
-    await probe(205);
+    await Future.wait([
+      probe(113),
+      probe(133),
+      probe(205),
+    ]);
 
     if (isAuthenticated) {
-      await probe(
-        2,
-        authenticated: true,
-        fields: const {'subcmd': 0},
-      );
-      await probe(
-        211,
-        authenticated: true,
-        fields: const {'subcmd': 0},
-      );
-      await probe(
-        230,
-        authenticated: true,
-        fields: const {'subcmd': '0'},
-      );
-      await probe(
-        231,
-        authenticated: true,
-        fields: const {'subcmd': '0'},
-      );
-      await probe(
-        410,
-        authenticated: true,
-        fields: const {'subcmd': '0'},
-      );
-      await probe(463, authenticated: true);
-      await probe(11, authenticated: true);
-      await probe(223, authenticated: true);
-      await probe(224, authenticated: true);
-      await probe(225, authenticated: true);
-      await probe(402, authenticated: true);
+      await Future.wait([
+        probe(
+          2,
+          authenticated: true,
+          fields: const {'subcmd': 0},
+        ),
+        probe(
+          211,
+          authenticated: true,
+          fields: const {'subcmd': 0},
+        ),
+        probe(
+          230,
+          authenticated: true,
+          fields: const {'subcmd': '0'},
+        ),
+        probe(
+          231,
+          authenticated: true,
+          fields: const {'subcmd': '0'},
+        ),
+        probe(223, authenticated: true),
+        probe(402, authenticated: true),
+      ]);
 
-      await probe(18, authenticated: true);
-      await probe(337, authenticated: true);
-      await probe(207, authenticated: true);
-      await probe(218, authenticated: true);
+      await Future.wait([
+        probe(224, authenticated: true),
+        probe(225, authenticated: true),
+        probe(18, authenticated: true),
+        probe(337, authenticated: true),
+        probe(207, authenticated: true),
+        probe(218, authenticated: true),
+      ]);
 
-      await probe(
-        23,
-        authenticated: true,
-        fields: const {'getfun': true},
-      );
-      await probe(28, authenticated: true);
-      await probe(30, authenticated: true);
-      await probe(278, authenticated: true);
-      try {
-        await readWirelessMacFilter('0');
-        wifi5MacFilterAvailable = true;
-      } catch (_) {}
-      try {
-        await readWirelessMacFilter('1');
-        wifi24MacFilterAvailable = true;
-      } catch (_) {}
-      await probe(
-        12,
-        authenticated: true,
-        fields: const {'page_num': 1, 'subcmd': 0},
-      );
-      await probe(16, authenticated: true);
-      await probe(355, authenticated: true);
-      await probe(397, authenticated: true);
-      await probe(
-        385,
-        authenticated: true,
-        fields: const {'getfun': true},
-      );
+      await Future.wait([
+        probe(11, authenticated: true),
+        probe(
+          12,
+          authenticated: true,
+          fields: const {'page_num': 1, 'subcmd': 0},
+        ),
+        probe(16, authenticated: true),
+        probe(
+          385,
+          authenticated: true,
+          fields: const {'getfun': true},
+        ),
+        probe(278, authenticated: true),
+        probe(463, authenticated: true),
+      ]);
+
+      await Future.wait([
+        probe(
+          23,
+          authenticated: true,
+          fields: const {'getfun': true},
+        ),
+        probe(28, authenticated: true),
+        probe(30, authenticated: true),
+        probe(
+          410,
+          authenticated: true,
+          fields: const {'subcmd': '0'},
+        ),
+        probe(355, authenticated: true),
+        probe(397, authenticated: true),
+      ]);
+
+      await Future.wait([
+        () async {
+          try {
+            await readWirelessMacFilter('0');
+            wifi5MacFilterAvailable = true;
+          } catch (_) {}
+        }(),
+        () async {
+          try {
+            await readWirelessMacFilter('1');
+            wifi24MacFilterAvailable = true;
+          } catch (_) {}
+        }(),
+      ]);
     }
 
     final stationRows =
