@@ -113,6 +113,7 @@ def sanitize(value: Any, key: str = "") -> Any:
             "passwd",
             "wpa",
             "key",
+            "pin",
         )
     ):
         return "[redacted]" if str(value) else value
@@ -175,6 +176,10 @@ def main() -> int:
 
     # All commands below are GET/read probes. No configuration is changed.
     #
+    # 2/211    2.4/5 GHz primary Wi-Fi settings
+    # 230/231  2.4/5 GHz radio/channel settings
+    # 410      combined advanced Wi-Fi settings
+    # 463      active Wi-Fi band selection
     # 11       router/device time; stock UI maps getDeviceTime() to this GET command
     # 223/402  connected-client sources
     # 224/225  2.4/5 GHz Wi-Fi association detail
@@ -191,6 +196,12 @@ def main() -> int:
     # 397      parental-control summary/state
     # 385      parental-control per-device rules; stock UI sends getfun=true
     probes: tuple[tuple[int, dict[str, Any]], ...] = (
+        (2, {"subcmd": 0}),
+        (211, {"subcmd": 0}),
+        (230, {"subcmd": "0"}),
+        (231, {"subcmd": "0"}),
+        (410, {"subcmd": "0"}),
+        (463, {}),
         (11, {}),
         (223, {}),
         (224, {}),
@@ -226,6 +237,19 @@ def main() -> int:
         except Exception as exc:
             errors[str(cmd)] = str(exc)
 
+    # WPS reads share command 132 and the stock pages distinguish the bands
+    # through request fields. Probe both subcmd values as GETs only.
+    for label, subcmd in (("132_24g", "0"), ("132_5g", "1")):
+        try:
+            responses[label] = read_command(
+                host,
+                132,
+                session_id,
+                fields={"subcmd": subcmd},
+            )
+        except Exception as exc:
+            errors[label] = str(exc)
+
     # The stock UI's Wi-Fi blacklist/whitelist component uses command 278
     # with subcmd "0" for 5 GHz and subcmd "1" for 2.4 GHz.
     for label, subcmd in (("278_5g", "0"), ("278_24g", "1")):
@@ -239,6 +263,14 @@ def main() -> int:
         except Exception as exc:
             errors[label] = str(exc)
 
+    d2 = responses.get("2", {})
+    d211 = responses.get("211", {})
+    d230 = responses.get("230", {})
+    d231 = responses.get("231", {})
+    d410 = responses.get("410", {})
+    d463 = responses.get("463", {})
+    d132_24g = responses.get("132_24g", {})
+    d132_5g = responses.get("132_5g", {})
     d11 = responses.get("11", {})
     d223 = responses.get("223", {})
     d402 = responses.get("402", {})
@@ -277,6 +309,38 @@ def main() -> int:
         ),
         "errors": errors,
         "capabilities": {
+            "wifi_24_settings_fields": sorted(
+                key for key in d2.keys()
+                if key not in {"success", "cmd", "message"}
+            ),
+            "wifi_5_settings_fields": sorted(
+                key for key in d211.keys()
+                if key not in {"success", "cmd", "message"}
+            ),
+            "wifi_24_radio_fields": sorted(
+                key for key in d230.keys()
+                if key not in {"success", "cmd", "message"}
+            ),
+            "wifi_5_radio_fields": sorted(
+                key for key in d231.keys()
+                if key not in {"success", "cmd", "message"}
+            ),
+            "wifi_advanced_fields": sorted(
+                key for key in d410.keys()
+                if key not in {"success", "cmd", "message"}
+            ),
+            "wifi_band_select_fields": sorted(
+                key for key in d463.keys()
+                if key not in {"success", "cmd", "message"}
+            ),
+            "wifi_24_wps_fields": sorted(
+                key for key in d132_24g.keys()
+                if key not in {"success", "cmd", "message"}
+            ),
+            "wifi_5_wps_fields": sorted(
+                key for key in d132_5g.keys()
+                if key not in {"success", "cmd", "message"}
+            ),
             "device_time_fields": sorted(
                 key for key in d11.keys()
                 if key not in {"success", "cmd", "message"}
