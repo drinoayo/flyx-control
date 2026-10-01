@@ -86,29 +86,29 @@ class _DevicesScreenState extends State<DevicesScreen> {
               ],
             ),
           ),
-          if (!controller.capabilities.blocking) ...[
-            const SizedBox(height: 12),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 18),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: FlyxColors.yellow.withValues(alpha: .07),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: FlyxColors.yellow.withValues(alpha: .16),
-                  ),
-                ),
-                child: Text(
-                  'Online devices are live from the router. Offline devices are remembered locally with their last-seen time. Router-side blocking stays hidden until the MTN firmware exposes a verifiable deny list.',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: FlyxColors.muted,
-                      ),
+          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 18),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: FlyxColors.yellow.withValues(alpha: .07),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: FlyxColors.yellow.withValues(alpha: .16),
                 ),
               ),
+              child: Text(
+                controller.capabilities.blocking
+                    ? 'Online devices are live from the router. Offline devices are remembered locally. Instant Block / Unblock uses the router’s verified Wi-Fi deny list on both bands.'
+                    : 'Online devices are live from the router. Offline devices are remembered locally with their last-seen time.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: FlyxColors.muted,
+                    ),
+              ),
             ),
-          ],
+          ),
           const SizedBox(height: 18),
           Expanded(
             child: visible.isEmpty
@@ -344,7 +344,7 @@ class _EmptyDevices extends StatelessWidget {
             Text(
               switch (filter) {
                 2 => 'Devices you have seen before will appear here after they leave the network.',
-                3 => 'Blocked devices will stay visible here once router-side blocking is verified.',
+                3 => 'Devices blocked through FlyX Control will stay visible here until you unblock them.',
                 _ => 'Connect a device to FlyX and it will appear here.',
               },
               textAlign: TextAlign.center,
