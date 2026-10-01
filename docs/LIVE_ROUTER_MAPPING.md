@@ -372,4 +372,4 @@ Minute-level storage on the tested firmware should be considered beta until one 
 
 A minute-level Parent Control schedule created from FlyX Control was accepted by the router and entered its active blocked window successfully. This confirms that the tested firmware does not merely store non-zero minute values: it enforces them.
 
-The end-of-window recovery for this minute-level test has not yet been observed, so exact minute-level recovery timing remains to be confirmed separately.
+The managed phone then regained access automatically when the minute-level end time was reached. This confirms end-to-end minute-level schedule behavior on the tested firmware: exact-minute start, exact-minute enforcement window, and automatic recovery at the configured end time.
