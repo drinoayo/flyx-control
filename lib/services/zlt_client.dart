@@ -435,7 +435,12 @@ class ZltClient {
         await readWirelessMacFilter('1');
         wifi24MacFilterAvailable = true;
       } catch (_) {}
-      await probe(350, authenticated: true);
+      await probe(
+        12,
+        authenticated: true,
+        fields: const {'page_num': 1, 'subcmd': 0},
+      );
+      await probe(16, authenticated: true);
       await probe(355, authenticated: true);
       await probe(397, authenticated: true);
       await probe(
