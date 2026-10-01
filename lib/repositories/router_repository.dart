@@ -31,6 +31,9 @@ abstract class RouterRepository {
   Future<UssdResult> sendUssd(String code);
   Future<void> cancelUssd();
   Future<RouterNetworkModeSnapshot> fetchNetworkMode();
+  Future<void> setFlightMode(bool enabled);
+  Future<void> setMobileData(bool enabled);
+  Future<void> setDataRoaming(bool enabled);
   Future<RouterCapabilities> capabilities();
   Future<void> setBlocked(String deviceId, bool blocked);
   Future<void> setDeviceName(String deviceId, String name);
