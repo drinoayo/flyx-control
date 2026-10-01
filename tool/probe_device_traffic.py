@@ -323,10 +323,14 @@ def main() -> int:
         interval=max(0.5, args.interval),
     )
 
-    input(
+    print(
         "Phase 2/2: on the selected device, start a large download, "
-        "high-quality video, or speed test. Then press ENTER here: "
+        "high-quality video, or speed test. Then press ENTER here: ",
+        file=sys.stderr,
+        end="",
+        flush=True,
     )
+    input()
 
     active = collect_phase(
         host,
