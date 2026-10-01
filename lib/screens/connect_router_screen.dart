@@ -7,6 +7,7 @@ import '../services/secure_store.dart';
 import '../services/zlt_client.dart';
 import '../state/app_scope.dart';
 import '../widgets/common.dart';
+import 'app_shell.dart';
 
 class ConnectRouterScreen extends StatefulWidget {
   const ConnectRouterScreen({super.key});
@@ -238,7 +239,15 @@ class _ConnectRouterScreenState extends State<ConnectRouterScreen> {
       });
 
       await Future<void>.delayed(const Duration(milliseconds: 500));
-      if (mounted) Navigator.of(context).pop();
+      if (!mounted) return;
+      final navigator = Navigator.of(context);
+      if (navigator.canPop()) {
+        navigator.pop();
+      } else {
+        navigator.pushReplacement(
+          MaterialPageRoute(builder: (_) => const AppShell()),
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
