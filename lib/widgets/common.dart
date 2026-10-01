@@ -28,7 +28,9 @@ class AppTopBar extends StatelessWidget {
               if (subtitle != null)
                 Text(
                   subtitle!,
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(color: FlyxColors.muted),
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: FlyxColors.mutedFor(context),
+                  ),
                 ),
               const SizedBox(height: 3),
               Text(title, style: Theme.of(context).textTheme.headlineMedium),
@@ -117,13 +119,16 @@ class StatusDot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final statusColor = online
+        ? FlyxColors.successFor(context)
+        : FlyxColors.mutedFor(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
-        color: (online ? FlyxColors.success : FlyxColors.muted).withValues(alpha: .1),
+        color: statusColor.withValues(alpha: .1),
         borderRadius: BorderRadius.circular(99),
         border: Border.all(
-          color: (online ? FlyxColors.success : FlyxColors.muted).withValues(alpha: .18),
+          color: statusColor.withValues(alpha: .18),
         ),
       ),
       child: Row(
@@ -133,7 +138,7 @@ class StatusDot extends StatelessWidget {
             width: 7,
             height: 7,
             decoration: BoxDecoration(
-              color: online ? FlyxColors.success : FlyxColors.muted,
+              color: statusColor,
               shape: BoxShape.circle,
             ),
           ),
@@ -141,7 +146,7 @@ class StatusDot extends StatelessWidget {
           Text(
             label ?? (online ? 'Online' : 'Offline'),
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: online ? FlyxColors.success : FlyxColors.muted,
+                  color: statusColor,
                 ),
           ),
         ],
@@ -167,7 +172,12 @@ class MetricLabel extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: Theme.of(context).textTheme.labelMedium?.copyWith(color: FlyxColors.muted)),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: FlyxColors.mutedFor(context),
+              ),
+        ),
         const SizedBox(height: 5),
         Text(
           value,
@@ -197,7 +207,9 @@ class DeviceGlyph extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final foreground = blocked ? FlyxColors.danger : FlyxColors.yellow;
+    final foreground = blocked
+        ? FlyxColors.dangerFor(context)
+        : FlyxColors.accentFor(context);
     return Container(
       width: size,
       height: size,
@@ -222,15 +234,20 @@ class LiveSparkline extends StatelessWidget {
       height: height,
       width: double.infinity,
       child: CustomPaint(
-        painter: _SparkPainter(values),
+        painter: _SparkPainter(
+          values,
+          Theme.of(context).colorScheme.primary,
+        ),
       ),
     );
   }
 }
 
 class _SparkPainter extends CustomPainter {
-  _SparkPainter(this.values);
+  _SparkPainter(this.values, this.color);
+
   final List<double> values;
+  final Color color;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -254,15 +271,18 @@ class _SparkPainter extends CustomPainter {
       ..lineTo(0, size.height)
       ..close();
     final fillPaint = Paint()
-      ..shader = const LinearGradient(
+      ..shader = LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [Color(0x44FFCB05), Color(0x00FFCB05)],
+        colors: [
+          color.withValues(alpha: .27),
+          color.withValues(alpha: 0),
+        ],
       ).createShader(Offset.zero & size);
     canvas.drawPath(fill, fillPaint);
 
     final paint = Paint()
-      ..color = FlyxColors.yellow
+      ..color = color
       ..strokeWidth = 2.4
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
@@ -271,7 +291,8 @@ class _SparkPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _SparkPainter oldDelegate) => oldDelegate.values != values;
+  bool shouldRepaint(covariant _SparkPainter oldDelegate) =>
+      oldDelegate.values != values || oldDelegate.color != color;
 }
 
 class UsageBars extends StatelessWidget {
@@ -308,7 +329,8 @@ class UsageBars extends StatelessWidget {
                         curve: Curves.easeOutCubic,
                         height: math.max(8, (height - 30) * fraction),
                         decoration: BoxDecoration(
-                          color: FlyxColors.yellow.withValues(alpha: .9),
+                          color: FlyxColors.accentFor(context)
+                              .withValues(alpha: .9),
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
@@ -317,7 +339,9 @@ class UsageBars extends StatelessWidget {
                   const SizedBox(height: 8),
                   Text(
                     point.label,
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(color: FlyxColors.muted),
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                          color: FlyxColors.mutedFor(context),
+                        ),
                   ),
                 ],
               ),
@@ -358,7 +382,11 @@ class QuickAction extends StatelessWidget {
           ),
           child: Column(
             children: [
-              Icon(icon, color: FlyxColors.yellow, size: 22),
+              Icon(
+                icon,
+                color: FlyxColors.accentFor(context),
+                size: 22,
+              ),
               const SizedBox(height: 9),
               Text(label, style: Theme.of(context).textTheme.labelMedium),
             ],
