@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/theme.dart';
 import '../state/app_scope.dart';
+import '../state/appearance_scope.dart';
 import '../widgets/common.dart';
 import 'connect_router_screen.dart';
 import 'messages_screen.dart';
@@ -15,6 +16,7 @@ class MoreScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = AppScope.of(context);
+    final appearance = AppearanceScope.of(context);
     final c = controller.capabilities;
 
     return SafeArea(
@@ -106,6 +108,37 @@ class MoreScreen extends StatelessWidget {
                 ),
 
               ],
+            ),
+          ),
+          const SizedBox(height: 26),
+          const SectionTitle(title: 'Appearance'),
+          const SizedBox(height: 10),
+          SurfaceCard(
+            child: SegmentedButton<ThemeMode>(
+              showSelectedIcon: false,
+              segments: const [
+                ButtonSegment(
+                  value: ThemeMode.system,
+                  icon: Icon(Icons.brightness_auto_rounded),
+                  label: Text('System'),
+                ),
+                ButtonSegment(
+                  value: ThemeMode.light,
+                  icon: Icon(Icons.light_mode_rounded),
+                  label: Text('Light'),
+                ),
+                ButtonSegment(
+                  value: ThemeMode.dark,
+                  icon: Icon(Icons.dark_mode_rounded),
+                  label: Text('Dark'),
+                ),
+              ],
+              selected: {appearance.value},
+              onSelectionChanged: (selection) {
+                if (selection.isNotEmpty) {
+                  appearance.setMode(selection.first);
+                }
+              },
             ),
           ),
           const SizedBox(height: 26),
