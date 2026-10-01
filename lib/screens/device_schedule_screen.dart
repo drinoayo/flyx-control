@@ -130,7 +130,7 @@ class DeviceScheduleScreen extends StatelessWidget {
                               active
                                   ? Icons.wifi_off_rounded
                                   : Icons.schedule_rounded,
-                              color: FlyxColors.yellow,
+                              color: FlyxColors.accentFor(context),
                               size: 20,
                             ),
                             const SizedBox(width: 10),
