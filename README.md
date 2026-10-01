@@ -29,6 +29,7 @@ FlyX Control is being built as a proper consumer network-control app rather than
 - Interactive USSD through the verified modern router path.
 - Verified router reboot from the stock X17U power-control mapping.
 - Verified mobile-network controls from the stock X17U page: Automatic (`E`) network mode mapping, Flight Mode, mobile data, data roaming, LTE CA/NR CA status, and guarded readback/rollback.
+- Forget controls for offline remembered devices, clearing locally stored friendly names and observed session history without changing router policy.
 
 ## Confirmed X17U API mapping
 
@@ -94,8 +95,10 @@ Completed:
 - Router-clock alignment for Parent Control status.
 - Recent observed device-session and internet-outage history.
 
-Remaining major feature group:
-1. Add cleanup/forget controls for remembered devices and finish Android release packaging.
+Current feature roadmap:
+- Core X17U control and local-history feature groups are implemented.
+- Android private-beta packaging is reproducible in GitHub Actions.
+- Production signing is intentionally not stored or configured in this repository.
 
 
 
