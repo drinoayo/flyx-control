@@ -218,6 +218,32 @@ class _NetworkScreenState extends State<NetworkScreen> {
                     ],
                   ),
           ),
+          if (n != null && n.recentOutages.isNotEmpty) ...[
+            const SizedBox(height: 26),
+            const SectionTitle(title: 'Recent observed outages'),
+            const SizedBox(height: 10),
+            SurfaceCard(
+              child: Column(
+                children: [
+                  for (var i = 0; i < n.recentOutages.length; i++) ...[
+                    _OutageRow(outage: n.recentOutages[i]),
+                    if (i + 1 < n.recentOutages.length)
+                      const Divider(height: 22, indent: 42),
+                  ],
+                  const SizedBox(height: 12),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'These are only outages FlyX Control continuously observed. Monitoring gaps are excluded.',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: FlyxColors.muted,
+                          ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           if (n != null &&
               (n.routerCpuPercent != null ||
                   n.routerTemperatureC != null ||
@@ -301,6 +327,67 @@ class _NetworkScreenState extends State<NetworkScreen> {
       ),
     );
   }
+}
+
+class _OutageRow extends StatelessWidget {
+  const _OutageRow({required this.outage});
+
+  final ObservedOutage outage;
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final duration = outage.durationAt(now);
+    final restored = outage.restoredAt;
+    final subtitle = restored == null
+        ? 'Ongoing · ${formatDuration(duration)} observed'
+        : '${_formatOutageClock(outage.startedAt)}–${_formatOutageClock(restored)} · ${formatDuration(duration)}';
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          restored == null ? Icons.cloud_off_rounded : Icons.history_rounded,
+          color: restored == null ? FlyxColors.warning : FlyxColors.muted,
+          size: 20,
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${_formatOutageDate(outage.startedAt)} outage',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              const SizedBox(height: 3),
+              Text(
+                subtitle,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: FlyxColors.muted,
+                    ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+String _formatOutageDate(DateTime value) {
+  const months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+  return '${months[value.month - 1]} ${value.day}';
+}
+
+String _formatOutageClock(DateTime value) {
+  final hour = value.hour % 12 == 0 ? 12 : value.hour % 12;
+  final minute = value.minute.toString().padLeft(2, '0');
+  final suffix = value.hour >= 12 ? 'PM' : 'AM';
+  return '$hour:$minute $suffix';
 }
 
 class _HealthRow extends StatelessWidget {
