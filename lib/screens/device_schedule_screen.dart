@@ -25,7 +25,7 @@ class DeviceScheduleScreen extends StatelessWidget {
     }
 
     final schedule = device.parentControlSchedule;
-    final active = schedule?.isActiveAt(DateTime.now()) ?? false;
+    final active = device.parentControlActive;
 
     return Scaffold(
       appBar: AppBar(
