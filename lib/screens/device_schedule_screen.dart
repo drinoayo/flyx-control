@@ -29,8 +29,6 @@ class DeviceScheduleScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: FlyxColors.ink,
-        surfaceTintColor: Colors.transparent,
         title: const Text('Access schedule'),
       ),
       body: ListView(
@@ -242,7 +240,7 @@ class DeviceScheduleScreen extends StatelessWidget {
     final schedule = await showModalBottomSheet<ParentControlSchedule>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: FlyxColors.surface,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       builder: (_) => _ScheduleEditor(existing: existing),
     );
     if (schedule == null || !context.mounted) return;
