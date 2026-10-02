@@ -11,9 +11,19 @@ void main() {
       expect(formatRate(12500), '100 Kbps');
     });
 
-    test('uses Mbps from one megabit per second', () {
+    test('keeps one decimal below 100 Mbps', () {
       expect(formatRate(125000), '1.0 Mbps');
-      expect(formatRate(1500000), '12.0 Mbps');
+      expect(formatRate(12487500), '99.9 Mbps');
+    });
+
+    test('uses compact whole Mbps from 100 Mbps', () {
+      expect(formatRate(12550000), '100 Mbps');
+      expect(formatRate(106375000), '851 Mbps');
+    });
+
+    test('switches to Gbps at gigabit speed', () {
+      expect(formatRate(125000000), '1.00 Gbps');
+      expect(formatRate(156250000), '1.25 Gbps');
     });
   });
 }
