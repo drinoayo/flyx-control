@@ -57,14 +57,14 @@
             android:textColor="#959DA8"
             android:textSize="12sp" />
         <LinearLayout
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="bottom"
                 android:orientation="horizontal">
                 <TextView
             android:id="@+id/metric1_value"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content" android:layout_weight="1"
             android:layout_marginTop="2dp"
             android:fontFamily="sans-serif-medium"
             android:maxLines="1"
@@ -97,11 +97,11 @@
             android:orientation="vertical">
             <TextView android:id="@+id/metric2_label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:fontFamily="sans-serif-medium" android:maxLines="1" android:textColor="#959DA8" android:textSize="9sp" />
             <LinearLayout
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="bottom"
                 android:orientation="horizontal">
-                <TextView android:id="@+id/metric2_value" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:fontFamily="sans-serif-medium" android:maxLines="1" android:textColor="#F7F8FA" android:textSize="14sp" />
+                <TextView android:id="@+id/metric2_value" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:layout_marginTop="2dp" android:fontFamily="sans-serif-medium" android:maxLines="1" android:textColor="#F7F8FA" android:textSize="14sp" />
                 <TextView
                     android:id="@+id/metric2_unit"
                     android:layout_width="wrap_content"
@@ -122,11 +122,11 @@
             android:paddingStart="8dp">
             <TextView android:id="@+id/metric3_label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:fontFamily="sans-serif-medium" android:maxLines="1" android:textColor="#959DA8" android:textSize="9sp" />
             <LinearLayout
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="bottom"
                 android:orientation="horizontal">
-                <TextView android:id="@+id/metric3_value" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:fontFamily="sans-serif-medium" android:maxLines="1" android:textColor="#F7F8FA" android:textSize="14sp" />
+                <TextView android:id="@+id/metric3_value" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:layout_marginTop="2dp" android:fontFamily="sans-serif-medium" android:maxLines="1" android:textColor="#F7F8FA" android:textSize="14sp" />
                 <TextView
                     android:id="@+id/metric3_unit"
                     android:layout_width="wrap_content"
@@ -147,11 +147,11 @@
             android:paddingStart="8dp">
             <TextView android:id="@+id/metric4_label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:fontFamily="sans-serif-medium" android:maxLines="1" android:textColor="#959DA8" android:textSize="9sp" />
             <LinearLayout
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="bottom"
                 android:orientation="horizontal">
-                <TextView android:id="@+id/metric4_value" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:fontFamily="sans-serif-medium" android:maxLines="1" android:textColor="#F7F8FA" android:textSize="14sp" />
+                <TextView android:id="@+id/metric4_value" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:layout_marginTop="2dp" android:fontFamily="sans-serif-medium" android:maxLines="1" android:textColor="#F7F8FA" android:textSize="14sp" />
                 <TextView
                     android:id="@+id/metric4_unit"
                     android:layout_width="wrap_content"
