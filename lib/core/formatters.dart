@@ -12,7 +12,13 @@ String formatRate(num bytesPerSecond) {
   final bits = bytesPerSecond * 8;
   if (bits < 1000) return '${bits.toStringAsFixed(0)} bps';
   if (bits < 1000000) return '${(bits / 1000).toStringAsFixed(0)} Kbps';
-  return '${(bits / 1000000).toStringAsFixed(1)} Mbps';
+
+  final mbps = bits / 1000000;
+  if (mbps < 100) return '${mbps.toStringAsFixed(1)} Mbps';
+  if (mbps < 1000) return '${mbps.toStringAsFixed(0)} Mbps';
+
+  final gbps = bits / 1000000000;
+  return '${gbps.toStringAsFixed(gbps < 10 ? 2 : 1)} Gbps';
 }
 
 String formatDuration(Duration duration) {
