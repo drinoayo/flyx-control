@@ -8,9 +8,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Color
-import android.text.SpannableString
-import android.text.Spanned
-import android.text.style.RelativeSizeSpan
 import android.view.View
 import android.widget.RemoteViews
 
@@ -120,6 +117,7 @@ class FlyxWidgetProvider : AppWidgetProvider() {
             for (index in 1..4) {
                 views.setTextColor(labelId(index), muted)
                 views.setTextColor(valueId(index), text)
+                views.setTextColor(unitId(index), text)
             }
 
             if (style == "grid") {
@@ -164,14 +162,16 @@ class FlyxWidgetProvider : AppWidgetProvider() {
                     rawValue
                 }
                 views.setTextViewText(labelId(index), metricLabels[metric] ?: metric)
-                views.setTextViewText(
-                    valueId(index),
-                    if (metric == "download" || metric == "upload") {
-                        styleRateUnit(displayValue)
-                    } else {
-                        displayValue
-                    },
-                )
+                if (metric == "download" || metric == "upload") {
+                    val rate = splitRate(displayValue)
+                    views.setTextViewText(valueId(index), rate.first)
+                    views.setTextViewText(unitId(index), rate.second)
+                    views.setViewVisibility(unitId(index), View.VISIBLE)
+                } else {
+                    views.setTextViewText(valueId(index), displayValue)
+                    views.setTextViewText(unitId(index), "")
+                    views.setViewVisibility(unitId(index), View.GONE)
+                }
             }
 
             when (style) {
@@ -230,21 +230,10 @@ class FlyxWidgetProvider : AppWidgetProvider() {
             views.setOnClickPendingIntent(R.id.widget_root, pendingIntent)
         }
 
-        private fun styleRateUnit(value: String): CharSequence {
+        private fun splitRate(value: String): Pair<String, String> {
             val match = Regex("""^(.+?)\\s+(bps|Kbps|Mbps)$""").matchEntire(value)
-                ?: return value
-            val number = match.groupValues[1]
-            val unit = match.groupValues[2]
-            val text = "$number $unit"
-            val unitStart = number.length + 1
-            return SpannableString(text).apply {
-                setSpan(
-                    RelativeSizeSpan(0.75f),
-                    unitStart,
-                    text.length,
-                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
-                )
-            }
+                ?: return value to ""
+            return match.groupValues[1] to match.groupValues[2]
         }
 
         private fun configKey(appWidgetId: Int, suffix: String) =
@@ -269,6 +258,13 @@ class FlyxWidgetProvider : AppWidgetProvider() {
             2 -> R.id.metric2_value
             3 -> R.id.metric3_value
             else -> R.id.metric4_value
+        }
+
+        private fun unitId(index: Int) = when (index) {
+            1 -> R.id.metric1_unit
+            2 -> R.id.metric2_unit
+            3 -> R.id.metric3_unit
+            else -> R.id.metric4_unit
         }
     }
 }
