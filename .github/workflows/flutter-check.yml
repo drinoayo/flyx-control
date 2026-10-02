@@ -61,6 +61,9 @@ jobs:
       - name: Build release staging APK
         run: flutter build apk --release
 
+      - name: Verify release native-library alignment
+        run: python3 tool/verify_apk_native_alignment.py build/app/outputs/flutter-apk/app-release.apk
+
       - name: Upload release staging APK
         uses: actions/upload-artifact@v4
         with:
