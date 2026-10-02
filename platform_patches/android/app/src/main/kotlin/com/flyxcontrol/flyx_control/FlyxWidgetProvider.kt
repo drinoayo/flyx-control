@@ -231,7 +231,7 @@ class FlyxWidgetProvider : AppWidgetProvider() {
         }
 
         private fun splitRate(value: String): Pair<String, String> {
-            val match = Regex("""^(.+?)\s+(bps|Kbps|Mbps)$""").matchEntire(value)
+            val match = Regex("""^(.+?)\s+(bps|Kbps|Mbps|Gbps)$""").matchEntire(value)
                 ?: return value to ""
             return match.groupValues[1] to match.groupValues[2]
         }
