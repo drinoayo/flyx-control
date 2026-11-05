@@ -441,7 +441,15 @@ class UsageStore {
       final start = today.subtract(Duration(days: offset));
       final end = start.add(const Duration(days: 1));
       final bytes = await usageBetween(start, end);
-      result.add(UsagePoint(labels[start.weekday - 1], bytes));
+      final previousStart = start.subtract(const Duration(days: 1));
+      final previousBytes = await usageBetween(previousStart, start);
+      result.add(
+        UsagePoint(
+          labels[start.weekday - 1],
+          bytes,
+          previousBytes: previousBytes,
+        ),
+      );
     }
     return result;
   }
