@@ -50,7 +50,7 @@ class AppController extends ChangeNotifier {
         repository.fetchNetwork(),
         if (fetchDevices) repository.fetchDevices(),
         if (fetchHistory) repository.fetchWeeklyUsage(),
-        if (fetchMessages) repository.fetchSmsInbox(),
+        if (fetchMessages) _fetchUnreadMessageCount(),
       ];
       final results = await Future.wait<dynamic>(futures);
 
@@ -63,8 +63,7 @@ class AppController extends ChangeNotifier {
         weeklyUsage = results[index++] as List<UsagePoint>;
       }
       if (fetchMessages) {
-        final page = results[index++] as RouterSmsPage;
-        _messageCount = page.messages.where((message) => message.unread).length;
+        _messageCount = results[index++] as int;
       }
       error = null;
       await _syncWidgets();
@@ -112,8 +111,7 @@ class AppController extends ChangeNotifier {
       capabilities = results[3] as RouterCapabilities;
       if (capabilities.sms) {
         try {
-          final page = await repository.fetchSmsInbox();
-          _messageCount = page.messages.where((message) => message.unread).length;
+          _messageCount = await _fetchUnreadMessageCount();
         } catch (_) {
           // Keep the last known count if SMS is temporarily unavailable.
         }
@@ -165,13 +163,33 @@ class AppController extends ChangeNotifier {
     return repository.fetchSmsInbox(page: page);
   }
 
+  Future<int> _fetchUnreadMessageCount() async {
+    final first = await repository.fetchSmsInbox(page: 1);
+    final unreadByIndex = <int, bool>{
+      for (final message in first.messages) message.index: message.unread,
+    };
+
+    for (var page = 2; page <= first.maxPage; page++) {
+      final result = await repository.fetchSmsInbox(page: page);
+      for (final message in result.messages) {
+        unreadByIndex[message.index] = message.unread;
+      }
+    }
+
+    return unreadByIndex.values.where((unread) => unread).length;
+  }
+
   Future<void> sendSms(String phoneNumber, String content) {
     return _runAction(() => repository.sendSms(phoneNumber, content));
   }
 
   Future<void> markSmsRead(int index) async {
     await _runAction(() => repository.markSmsRead(index));
-    if (_messageCount > 0) _messageCount--;
+    try {
+      _messageCount = await _fetchUnreadMessageCount();
+    } catch (_) {
+      if (_messageCount > 0) _messageCount--;
+    }
     await _syncWidgets(force: true);
   }
 
@@ -179,8 +197,7 @@ class AppController extends ChangeNotifier {
     await _runAction(() => repository.deleteSms(indexes));
     if (capabilities.sms) {
       try {
-        final page = await repository.fetchSmsInbox();
-        _messageCount = page.messages.where((message) => message.unread).length;
+        _messageCount = await _fetchUnreadMessageCount();
         await _syncWidgets(force: true);
       } catch (_) {
         // The inbox screen will surface any real SMS error to the user.
