@@ -367,15 +367,14 @@ class _UsageBarsState extends State<UsageBars> {
               color: Theme.of(context).colorScheme.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(14),
             ),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Text(
-                    '${selected.label}: ${formatBytes(selected.bytes)}',
-                    style: Theme.of(context).textTheme.labelLarge,
-                  ),
+                Text(
+                  '${selected.label}: ${formatBytes(selected.bytes)}',
+                  style: Theme.of(context).textTheme.labelLarge,
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(height: 3),
                 Text(
                   selected.previousBytes == null
                       ? 'Previous day unavailable'
