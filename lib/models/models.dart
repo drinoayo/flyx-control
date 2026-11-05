@@ -428,9 +428,20 @@ class FlyxDevice {
 }
 
 class UsagePoint {
-  const UsagePoint(this.label, this.bytes);
+  const UsagePoint(
+    this.label,
+    this.bytes, {
+    this.previousBytes,
+  });
+
   final String label;
   final int bytes;
+
+  /// Usage recorded for the immediately preceding calendar day.
+  ///
+  /// This is kept alongside the visible seven-day point so historical bars can
+  /// reveal the previous day's usage without adding an eighth bar to the chart.
+  final int? previousBytes;
 }
 
 class NetworkSnapshot {
