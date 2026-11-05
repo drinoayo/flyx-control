@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../core/formatters.dart';
 import '../core/theme.dart';
 import '../models/models.dart';
 
@@ -295,59 +296,174 @@ class _SparkPainter extends CustomPainter {
       oldDelegate.values != values || oldDelegate.color != color;
 }
 
-class UsageBars extends StatelessWidget {
+class UsageBars extends StatefulWidget {
   const UsageBars({super.key, required this.points, this.height = 142});
+
   final List<UsagePoint> points;
   final double height;
 
   @override
+  State<UsageBars> createState() => _UsageBarsState();
+}
+
+class _UsageBarsState extends State<UsageBars> {
+  int? _selectedIndex;
+
+  @override
+  void didUpdateWidget(covariant UsageBars oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_selectedIndex != null &&
+        _selectedIndex! >= widget.points.length - 1) {
+      _selectedIndex = null;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final points = widget.points;
     if (points.isEmpty) {
       return SizedBox(
-        height: height,
-        child: const Center(child: Text('Usage history will appear here as it is collected.')),
+        height: widget.height,
+        child: const Center(
+          child: Text('Usage history will appear here as it is collected.'),
+        ),
       );
     }
+
     final maxBytes = points.map((p) => p.bytes).reduce(math.max).toDouble();
-    return SizedBox(
-      height: height,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: points.map((point) {
-          final fraction = maxBytes <= 0 ? 0.0 : point.bytes / maxBytes;
-          return Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Expanded(
-                    child: Align(
-                      alignment: Alignment.bottomCenter,
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 450),
-                        curve: Curves.easeOutCubic,
-                        height: math.max(8, (height - 30) * fraction),
-                        decoration: BoxDecoration(
-                          color: FlyxColors.accentFor(context)
-                              .withValues(alpha: .9),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
+    final selected =
+        _selectedIndex == null ? null : points[_selectedIndex!];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          height: widget.height,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              for (var index = 0; index < points.length; index++)
+                Expanded(
+                  child: _UsageBar(
+                    point: points[index],
+                    maxBytes: maxBytes,
+                    chartHeight: widget.height,
+                    selected: _selectedIndex == index,
+                    interactive: index < points.length - 1,
+                    onTap: index < points.length - 1
+                        ? () => setState(() => _selectedIndex = index)
+                        : null,
+                  ),
+                ),
+            ],
+          ),
+        ),
+        if (selected != null) ...[
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '${selected.label}: ${formatBytes(selected.bytes)}',
+                    style: Theme.of(context).textTheme.labelLarge,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  selected.previousBytes == null
+                      ? 'Previous day unavailable'
+                      : 'Previous day: ${formatBytes(selected.previousBytes!)}',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: FlyxColors.mutedFor(context),
                       ),
-                    ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _UsageBar extends StatelessWidget {
+  const _UsageBar({
+    required this.point,
+    required this.maxBytes,
+    required this.chartHeight,
+    required this.selected,
+    required this.interactive,
+    required this.onTap,
+  });
+
+  final UsagePoint point;
+  final double maxBytes;
+  final double chartHeight;
+  final bool selected;
+  final bool interactive;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final fraction = maxBytes <= 0 ? 0.0 : point.bytes / maxBytes;
+    final content = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          Expanded(
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 450),
+                curve: Curves.easeOutCubic,
+                height: math.max(8, (chartHeight - 30) * fraction),
+                decoration: BoxDecoration(
+                  color: FlyxColors.accentFor(context).withValues(
+                    alpha: selected ? 1 : .9,
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    point.label,
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          color: FlyxColors.mutedFor(context),
-                        ),
-                  ),
-                ],
+                  borderRadius: BorderRadius.circular(8),
+                  border: selected
+                      ? Border.all(
+                          color: Theme.of(context).colorScheme.onSurface,
+                          width: 1.5,
+                        )
+                      : null,
+                ),
               ),
             ),
-          );
-        }).toList(),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            point.label,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: selected
+                      ? Theme.of(context).colorScheme.onSurface
+                      : FlyxColors.mutedFor(context),
+                  fontWeight: selected ? FontWeight.w700 : null,
+                ),
+          ),
+        ],
+      ),
+    );
+
+    if (!interactive) return content;
+
+    return Semantics(
+      button: true,
+      label:
+          '${point.label} data usage, ${formatBytes(point.bytes)}. Tap to show previous day usage.',
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: content,
       ),
     );
   }
